@@ -2,7 +2,7 @@
 
 Embedded database for persisting application state
 
-# Motiviation
+# Project goal
 
 Create a minimalistic database for storing application state. Database should:
 
