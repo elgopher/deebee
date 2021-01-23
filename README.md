@@ -10,4 +10,4 @@ Create a minimalistic database for storing application state. Database should:
 * survive application crashes and some disk failures
 * consume as little memory as possible
 * should be fast for storing large amount of data (from kilobytes to gigabytes)
-
+* should be optimized for writes, not reads
