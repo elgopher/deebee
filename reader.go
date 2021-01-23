@@ -1,20 +1,17 @@
 package deebee
 
 import (
-	"errors"
 	"io"
 )
 
-type OpenReader func(dir Dir) (io.ReadCloser, error)
+type openReader func(key string) (io.ReadCloser, error)
 
-func OpenReaderFunc(checksum Checksum) (OpenReader, error) {
-	if checksum == nil {
-		return nil, errors.New("")
-	}
-	return func(dir Dir) (io.ReadCloser, error) {
-		if dir == nil {
-			return nil, errors.New("nil dir")
+func openReaderFunc(dir Dir, newChecksum NewChecksum) (openReader, error) {
+	return func(key string) (io.ReadCloser, error) {
+		reader, err := dir.FileReader(key) // TODO error can also be returned when data is corrupted or some other IO error
+		if err != nil {
+			return nil, &dataNotFoundError{}
 		}
-		return dir.FileReader("data")
+		return reader, err
 	}, nil
 }

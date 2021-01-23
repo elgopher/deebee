@@ -1,9 +1,10 @@
 package deebee
 
 import (
-	"errors"
 	"io"
 )
+
+type NewChecksum func() Checksum
 
 type Checksum interface {
 	Add(b []byte)
@@ -22,17 +23,10 @@ type FileWriter interface {
 	Sync() error
 }
 
-type OpenWriter func(dir Dir) (io.WriteCloser, error)
+type openWriter func(key string) (io.WriteCloser, error)
 
-func OpenWriterFunc(checksum Checksum) (OpenWriter, error) {
-	if checksum == nil {
-		return nil, errors.New("")
-	}
-
-	return func(dir Dir) (io.WriteCloser, error) {
-		if dir == nil {
-			return nil, errors.New("nil dir")
-		}
-		return dir.FileWriter("data")
+func openWriterFunc(dir Dir, newChecksum NewChecksum) (openWriter, error) {
+	return func(key string) (io.WriteCloser, error) {
+		return dir.FileWriter(key)
 	}, nil
 }

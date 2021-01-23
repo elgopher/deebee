@@ -1,5 +1,11 @@
 package fake
 
+import "github.com/jacekolszak/deebee"
+
+func NewChecksum() deebee.Checksum {
+	return &Checksum{}
+}
+
 type Checksum struct {
 	sum uint32
 }
