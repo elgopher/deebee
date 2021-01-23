@@ -1,4 +1,4 @@
-# deebee
+# DeeBee
 
 Embedded database for persisting application state
 
