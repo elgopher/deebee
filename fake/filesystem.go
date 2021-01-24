@@ -29,11 +29,11 @@ func (f *Dir) FileWriter(name string) (deebee.FileWriter, error) {
 	if name == "" {
 		return nil, errors.New("empty file name")
 	}
-	file, exists := f.filesByName[name]
+	_, exists := f.filesByName[name]
 	if exists {
 		return nil, fmt.Errorf("file %s already exists", name)
 	}
-	file = &File{
+	file := &File{
 		name: name,
 	}
 	f.addFile(name, file)
