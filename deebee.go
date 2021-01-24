@@ -66,11 +66,20 @@ type Checksum interface {
 	Calculate() uint32
 }
 
+// Names with nested directories, files are not supported.
 type Dir interface {
 	// Opens an existing file for read. Must return error when file does not exist
 	FileReader(name string) (io.ReadCloser, error)
 	// Creates a new file for write. Must return error when file already exists
 	FileWriter(name string) (FileWriter, error)
+	// Returns true when directory exists
+	DirExists(name string) (bool, error)
+	// Creates directory. Do nothing when directory already exists
+	Mkdir(name string) error
+	// Return directory with name
+	Dir(name string) Dir
+	// List files excluding directories
+	ListFiles() ([]string, error)
 }
 
 type FileWriter interface {
