@@ -66,7 +66,7 @@ type Checksum interface {
 	Calculate() uint32
 }
 
-// Names with nested directories, files are not supported.
+// Names with file separators are not supported
 type Dir interface {
 	// Opens an existing file for read. Must return error when file does not exist
 	FileReader(name string) (io.ReadCloser, error)
