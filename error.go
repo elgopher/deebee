@@ -1,7 +1,5 @@
 package deebee
 
-import "fmt"
-
 type deebeeError struct {
 	message string
 }
@@ -37,7 +35,7 @@ func IsClientError(err error) bool {
 type dataNotFoundError struct{}
 
 func (e *dataNotFoundError) Error() string {
-	return fmt.Sprintf("data not found")
+	return "data not found"
 }
 
 func IsDataNotFound(err error) bool {
