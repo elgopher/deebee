@@ -2,7 +2,6 @@ package deebee_test
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -42,7 +41,6 @@ func TestOpen(t *testing.T) {
 		// when
 		db, err := deebee.Open(dir, option)
 		// then
-		fmt.Println(err)
 		assert.True(t, errors.Is(err, expectedError))
 		assert.Nil(t, db)
 	})

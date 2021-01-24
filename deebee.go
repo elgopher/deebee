@@ -10,11 +10,14 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 	if dir == nil {
 		return nil, errors.New("nil dir")
 	}
+	newChecksum := func() Checksum {
+		return &zeroChecksum{}
+	}
 	s := &DB{
-		dir: dir,
-		newChecksum: func() Checksum {
-			return &zeroChecksum{}
-		},
+		dir:         dir,
+		newChecksum: newChecksum,
+		openWriter:  openWriterFunc(dir, newChecksum),
+		openReader:  openReaderFunc(dir, newChecksum),
 	}
 	for _, apply := range options {
 		if apply != nil {
@@ -31,25 +34,19 @@ type Option func(state *DB) error
 type DB struct {
 	dir         Dir
 	newChecksum NewChecksum
+	openWriter  openWriter
+	openReader  openReader
 }
 
 func (s *DB) NewWriter(key string) (io.WriteCloser, error) {
-	openWriter, err := openWriterFunc(s.dir, s.newChecksum)
-	if err != nil {
-		return nil, err
-	}
-	return openWriter(key)
+	return s.openWriter(key)
 }
 
 func (s *DB) NewReader(key string) (io.ReadCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
-	openReader, err := openReaderFunc(s.dir, s.newChecksum)
-	if err != nil {
-		return nil, err
-	}
-	return openReader(key)
+	return s.openReader(key)
 }
 
 func WithNewChecksum(newChecksum NewChecksum) Option {
@@ -57,4 +54,23 @@ func WithNewChecksum(newChecksum NewChecksum) Option {
 		state.newChecksum = newChecksum
 		return nil
 	}
+}
+
+type NewChecksum func() Checksum
+
+type Checksum interface {
+	Add(b []byte)
+	Calculate() uint32
+}
+
+type Dir interface {
+	// Opens an existing file for read. Must return error when file does not exist
+	FileReader(name string) (io.ReadCloser, error)
+	// Creates a new file for write. Must return error when file already exists
+	FileWriter(name string) (FileWriter, error)
+}
+
+type FileWriter interface {
+	io.WriteCloser
+	Sync() error
 }
