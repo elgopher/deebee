@@ -11,3 +11,7 @@ Create a minimalistic database for storing application state. Database should:
 * consume as little memory as possible
 * should be fast for updating large amount of data (from megabytes to gigabytes)
 * should be optimized for writes, not reads
+
+# Project status
+
+Undery heavy development :)
