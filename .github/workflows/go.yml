@@ -8,8 +8,8 @@ on:
 
 jobs:
 
-  build:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
 
@@ -21,5 +21,10 @@ jobs:
     - name: Test
       run: go test -v ./...
 
+  lint:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+
     - name: Lint
-      uses: actions-contrib/golangci-lint@v1
+      uses: golangci/golangci-lint-action@v2.3.0
