@@ -18,6 +18,9 @@ func (o OsDir) FileReader(name string) (io.ReadCloser, error) {
 }
 
 func (o OsDir) FileWriter(name string) (FileWriter, error) {
+	if name == "" {
+		return nil, errors.New("empty file name")
+	}
 	flags := os.O_CREATE | os.O_EXCL | os.O_WRONLY
 	return os.OpenFile(o.path(name), flags, 0664)
 }

@@ -9,13 +9,14 @@ import (
 
 func main() {
 	dir := deebee.OsDir(tempDir())
+	fmt.Println("Database directory:", dir)
 	db, err := deebee.Open(dir)
 	panicIfError(err)
 
 	saveState(db, "Some very long data :)")
 	//saveState(db, "Updated data even longer than before :)") // update not supported yet
 	data := readState(db)
-	fmt.Println(data)
+	fmt.Println("Data read from disk:", data)
 }
 
 func saveState(db *deebee.DB, data string) {

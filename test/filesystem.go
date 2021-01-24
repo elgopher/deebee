@@ -12,7 +12,9 @@ import (
 
 const fileName = "test"
 
-type Dirs map[string]func(t *testing.T) deebee.Dir
+type NewDir func(t *testing.T) deebee.Dir
+
+type Dirs map[string]NewDir
 
 func WriteFile(t *testing.T, dir deebee.Dir, name string, data []byte) {
 	file, err := dir.FileWriter(name)

@@ -12,7 +12,7 @@ import (
 
 const fileName = "test"
 
-var dirs = map[string]func(t *testing.T) deebee.Dir{
+var dirs = map[string]test.NewDir{
 	"root":   rootDir,
 	"nested": makeNestedDir,
 }
