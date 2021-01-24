@@ -1,6 +1,6 @@
 # DeeBee
 
-Embedded database for persisting application state
+Embedded database for large data, update-heavy applications.
 
 # Project goal
 
