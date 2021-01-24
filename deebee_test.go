@@ -127,7 +127,7 @@ func writeData(t *testing.T, db *deebee.DB, key string, data []byte) {
 }
 
 func readData(t *testing.T, db *deebee.DB, key string) []byte {
-	reader, err := db.NewReader("state")
+	reader, err := db.NewReader(key)
 	require.NoError(t, err)
 	actual, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)

@@ -12,6 +12,7 @@ import (
 
 var data = []byte("test")
 
+// TODO Reuse tests from fake package - behaviour of all adapters should be defined in well written reusable tests
 func TestOsDir_FileWriter(t *testing.T) {
 	t.Run("should open new file", func(t *testing.T) {
 		osDir := deebee.OsDir(createTempDir(t))

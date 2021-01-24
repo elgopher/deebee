@@ -20,3 +20,19 @@ func (o OsDir) FileWriter(name string) (FileWriter, error) {
 func (o OsDir) path(name string) string {
 	return filepath.Join(string(o), name)
 }
+
+func (o OsDir) DirExists(name string) (bool, error) {
+	panic("implement me")
+}
+
+func (o OsDir) Mkdir(name string) error {
+	panic("implement me")
+}
+
+func (o OsDir) Dir(name string) Dir {
+	panic("implement me")
+}
+
+func (o OsDir) ListFiles() ([]string, error) {
+	panic("implement me")
+}

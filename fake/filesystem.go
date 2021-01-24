@@ -10,7 +10,10 @@ import (
 )
 
 type Dir struct {
-	filesByName map[string]*File
+	filesByName  map[string]*File
+	dirs         map[string]*Dir
+	doesNotExist bool
+	name         string
 }
 
 func (f *Dir) FileReader(name string) (io.ReadCloser, error) {
@@ -53,6 +56,51 @@ func (f *Dir) Files() []*File {
 		slice = append(slice, file)
 	}
 	return slice
+}
+
+func (f *Dir) DirExists(name string) (bool, error) {
+	if f.dirs == nil {
+		return false, nil
+	}
+	_, exists := f.dirs[name]
+	return exists, nil
+}
+
+func (f *Dir) Mkdir(name string) error {
+	if f.doesNotExist {
+		return fmt.Errorf("dir %s does not exist", f.name)
+	}
+	if f.dirs == nil {
+		f.dirs = map[string]*Dir{}
+	}
+	_, alreadyExist := f.dirs[name]
+	if alreadyExist {
+		return nil
+	}
+	f.dirs[name] = &Dir{}
+	return nil
+}
+
+func (f *Dir) Dir(name string) deebee.Dir {
+	dir, dirExists := f.dirs[name]
+	if !dirExists {
+		return &Dir{
+			doesNotExist: true,
+			name:         name,
+		}
+	}
+	return dir
+}
+
+func (f *Dir) ListFiles() ([]string, error) {
+	if f.doesNotExist {
+		return nil, fmt.Errorf("dir %s does not exist", f.name)
+	}
+	var files []string
+	for name := range f.filesByName {
+		files = append(files, name)
+	}
+	return files, nil
 }
 
 type File struct {
