@@ -52,10 +52,11 @@ func (e testError) Error() string {
 	return "test-error"
 }
 
+var invalidKeys = []string{"", " a", "a ", ".", "..", "/", "a/b", "\\", "a\\b"}
+
 func TestDB_NewReader(t *testing.T) {
 	t.Run("should return error for invalid keys", func(t *testing.T) {
-		keys := []string{"", " a", "a ", ".", "..", "/", "a/b", "\\", "a\\b"}
-		for _, key := range keys {
+		for _, key := range invalidKeys {
 			t.Run(key, func(t *testing.T) {
 				dir := &fake.Dir{}
 				db, err := deebee.Open(dir, deebee.WithNewChecksum(fake.NewChecksum))
@@ -81,6 +82,24 @@ func TestDB_NewReader(t *testing.T) {
 		require.Error(t, err)
 		assert.False(t, deebee.IsClientError(err))
 		assert.True(t, deebee.IsDataNotFound(err))
+	})
+}
+
+func TestDB_NewWriter(t *testing.T) {
+	t.Run("should return error for invalid keys", func(t *testing.T) {
+		for _, key := range invalidKeys {
+			t.Run(key, func(t *testing.T) {
+				dir := &fake.Dir{}
+				db, err := deebee.Open(dir, deebee.WithNewChecksum(fake.NewChecksum))
+				require.NoError(t, err)
+				// when
+				writer, err := db.NewWriter(key)
+				// then
+				assert.Nil(t, writer)
+				require.Error(t, err)
+				assert.True(t, deebee.IsClientError(err))
+			})
+		}
 	})
 }
 

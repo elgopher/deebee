@@ -39,6 +39,9 @@ type DB struct {
 }
 
 func (s *DB) NewWriter(key string) (io.WriteCloser, error) {
+	if err := validateKey(key); err != nil {
+		return nil, err
+	}
 	return s.openWriter(key)
 }
 
