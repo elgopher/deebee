@@ -1,6 +1,6 @@
 # DeeBee
 
-Embedded database in Go for large data heavy update applications.
+Embedded database in Go for super frequent updates of large data.
 
 # Project goal
 
