@@ -19,7 +19,7 @@ jobs:
         go-version: 1.15
 
     - name: Test
-      run: go test -v ./...
+      run: go test -race -v ./...
 
   lint:
     runs-on: ubuntu-20.04
