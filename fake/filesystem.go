@@ -9,15 +9,42 @@ import (
 	"github.com/jacekolszak/deebee"
 )
 
-type Dir struct {
-	parent      *Dir
+func ExistingDir() Dir {
+	return newRootDir("existing", false)
+}
+
+func MissingDir() Dir {
+	return newRootDir("missing", true)
+}
+
+func newRootDir(name string, missing bool) *dir {
+	return newDir(name, missing, nil)
+}
+
+func newDir(name string, missing bool, parent *dir) *dir {
+	return &dir{
+		parent:      parent,
+		filesByName: map[string]*File{},
+		dirsByName:  map[string]*dir{},
+		missing:     missing,
+		name:        name,
+	}
+}
+
+type Dir interface {
+	deebee.Dir
+	Files() []*File
+}
+
+type dir struct {
+	parent      *dir
 	filesByName map[string]*File
-	dirs        map[string]*Dir
+	dirsByName  map[string]*dir
 	missing     bool
 	name        string
 }
 
-func (f *Dir) FileReader(name string) (io.ReadCloser, error) {
+func (f *dir) FileReader(name string) (io.ReadCloser, error) {
 	if name == "" {
 		return nil, errors.New("empty file name")
 	}
@@ -29,7 +56,7 @@ func (f *Dir) FileReader(name string) (io.ReadCloser, error) {
 	return file, nil
 }
 
-func (f *Dir) FileWriter(name string) (deebee.FileWriter, error) {
+func (f *dir) FileWriter(name string) (deebee.FileWriter, error) {
 	if name == "" {
 		return nil, errors.New("empty file name")
 	}
@@ -40,18 +67,11 @@ func (f *Dir) FileWriter(name string) (deebee.FileWriter, error) {
 	file := &File{
 		name: name,
 	}
-	f.addFile(name, file)
+	f.filesByName[name] = file
 	return file, nil
 }
 
-func (f *Dir) addFile(name string, file *File) {
-	if f.filesByName == nil {
-		f.filesByName = map[string]*File{}
-	}
-	f.filesByName[name] = file
-}
-
-func (f *Dir) Files() []*File {
+func (f *dir) Files() []*File {
 	var slice []*File
 	for _, file := range f.filesByName {
 		slice = append(slice, file)
@@ -59,11 +79,11 @@ func (f *Dir) Files() []*File {
 	return slice
 }
 
-func (f *Dir) Exists() (bool, error) {
+func (f *dir) Exists() (bool, error) {
 	return !f.missing, nil
 }
 
-func (f *Dir) Mkdir() error {
+func (f *dir) Mkdir() error {
 	if f.parent != nil {
 		if f.parent.missing {
 			return fmt.Errorf("parent dir %s does not exist", f.parent.name)
@@ -73,27 +93,16 @@ func (f *Dir) Mkdir() error {
 	return nil
 }
 
-func (f *Dir) Dir(name string) deebee.Dir {
-	dir, exists := f.dirs[name]
+func (f *dir) Dir(name string) deebee.Dir {
+	d, exists := f.dirsByName[name]
 	if !exists {
-		dir = &Dir{
-			parent:  f,
-			missing: true,
-			name:    name,
-		}
-		f.addDir(name, dir)
+		d = newDir(name, true, f)
+		f.dirsByName[name] = d
 	}
-	return dir
+	return d
 }
 
-func (f *Dir) addDir(name string, dir *Dir) {
-	if f.dirs == nil {
-		f.dirs = map[string]*Dir{}
-	}
-	f.dirs[name] = dir
-}
-
-func (f *Dir) ListFiles() ([]string, error) {
+func (f *dir) ListFiles() ([]string, error) {
 	if f.missing {
 		return nil, fmt.Errorf("dir %s does not exist", f.name)
 	}

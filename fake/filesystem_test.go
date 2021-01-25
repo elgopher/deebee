@@ -13,16 +13,24 @@ import (
 const fileName = "test"
 
 var dirs = map[string]test.NewDir{
-	"root":   rootDir,
-	"nested": makeNestedDir,
+	"existing root": existingRootDir,
+	"created root":  makeRootDir,
+	"nested":        makeNestedDir,
 }
 
-func rootDir(t *testing.T) deebee.Dir {
-	return &fake.Dir{}
+func existingRootDir(t *testing.T) deebee.Dir {
+	return fake.ExistingDir()
+}
+
+func makeRootDir(t *testing.T) deebee.Dir {
+	dir := fake.MissingDir()
+	err := dir.Mkdir()
+	require.NoError(t, err)
+	return dir
 }
 
 func makeNestedDir(t *testing.T) deebee.Dir {
-	dir := &fake.Dir{}
+	dir := fake.ExistingDir()
 	err := dir.Dir("nested").Mkdir()
 	require.NoError(t, err)
 	return dir.Dir("nested")
@@ -34,14 +42,14 @@ func TestDir_FileWriter(t *testing.T) {
 
 func TestDir_Files(t *testing.T) {
 	t.Run("by default should return empty slice", func(t *testing.T) {
-		dir := &fake.Dir{}
+		dir := fake.ExistingDir()
 		assert.Empty(t, dir.Files())
 	})
 }
 
 func TestFile_Close(t *testing.T) {
 	t.Run("should create empty file", func(t *testing.T) {
-		dir := &fake.Dir{}
+		dir := fake.ExistingDir()
 		file, _ := dir.FileWriter(fileName)
 		// when
 		err := file.Close()
@@ -55,7 +63,7 @@ func TestFile_Close(t *testing.T) {
 	})
 
 	t.Run("should write file", func(t *testing.T) {
-		dir := &fake.Dir{}
+		dir := fake.ExistingDir()
 		file, _ := dir.FileWriter(fileName)
 		data := []byte("payload")
 		_, err := file.Write(data)
@@ -77,7 +85,7 @@ func TestFile_Write(t *testing.T) {
 func TestFile_Sync(t *testing.T) {
 	t.Run("Sync should update SyncedData", func(t *testing.T) {
 		var (
-			dir     = &fake.Dir{}
+			dir     = fake.ExistingDir()
 			file, _ = dir.FileWriter(fileName)
 			data    = []byte("payload")
 			_, _    = file.Write(data)
@@ -95,7 +103,7 @@ func TestFile_Sync(t *testing.T) {
 func TestFile_SyncedData(t *testing.T) {
 	t.Run("should return empty for not synced file", func(t *testing.T) {
 		var (
-			dir     = &fake.Dir{}
+			dir     = fake.ExistingDir()
 			file, _ = dir.FileWriter(fileName)
 			data    = []byte("payload")
 			_, _    = file.Write(data)
