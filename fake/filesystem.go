@@ -58,12 +58,8 @@ func (f *Dir) Files() []*File {
 	return slice
 }
 
-func (f *Dir) DirExists(name string) (bool, error) {
-	if f.dirs == nil {
-		return false, nil
-	}
-	_, exists := f.dirs[name]
-	return exists, nil
+func (f *Dir) Exists() (bool, error) {
+	return !f.doesNotExist, nil
 }
 
 func (f *Dir) Mkdir(name string) error {

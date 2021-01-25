@@ -158,13 +158,13 @@ func TestFileReader_Read(t *testing.T, dirs Dirs) {
 	}
 }
 
-func TestDir_DirExists(t *testing.T, dirs Dirs) {
+func TestDir_Exists(t *testing.T, dirs Dirs) {
 	for dirType, newDir := range dirs {
 		t.Run(dirType, func(t *testing.T) {
 
 			t.Run("should return false for not existing dir", func(t *testing.T) {
 				dir := newDir(t)
-				exists, err := dir.DirExists("not-existing")
+				exists, err := dir.Dir("not-existing").Exists()
 				require.NoError(t, err)
 				assert.False(t, exists)
 			})
@@ -174,7 +174,7 @@ func TestDir_DirExists(t *testing.T, dirs Dirs) {
 				err := dir.Mkdir("existing")
 				require.NoError(t, err)
 				// when
-				exists, err := dir.DirExists("existing")
+				exists, err := dir.Dir("existing").Exists()
 				require.NoError(t, err)
 				assert.True(t, exists)
 			})
@@ -183,7 +183,7 @@ func TestDir_DirExists(t *testing.T, dirs Dirs) {
 				dir := newDir(t)
 				notExisting := dir.Dir("not-existing")
 				// when
-				exists, err := notExisting.DirExists("another")
+				exists, err := notExisting.Dir("another").Exists()
 				require.NoError(t, err)
 				assert.False(t, exists)
 			})

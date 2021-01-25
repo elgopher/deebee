@@ -32,6 +32,12 @@ func TestOpen(t *testing.T) {
 		assert.NotNil(t, db)
 	})
 
+	t.Run("should return client error when database dir does not exist", func(t *testing.T) {
+		db, err := deebee.Open(notExistingDir())
+		assert.True(t, deebee.IsClientError(err))
+		assert.Nil(t, db)
+	})
+
 	t.Run("should return error when option returned error", func(t *testing.T) {
 		dir := &fake.Dir{}
 		expectedError := &testError{}
@@ -58,45 +64,42 @@ func TestDB_NewReader(t *testing.T) {
 	t.Run("should return error for invalid keys", func(t *testing.T) {
 		for _, key := range invalidKeys {
 			t.Run(key, func(t *testing.T) {
-				dir := &fake.Dir{}
-				db, err := deebee.Open(dir, deebee.WithNewChecksum(fake.NewChecksum))
-				require.NoError(t, err)
+				db := openDB(t, &fake.Dir{})
 				// when
 				reader, err := db.NewReader(key)
 				// then
 				assert.Nil(t, reader)
-				require.Error(t, err)
 				assert.True(t, deebee.IsClientError(err))
 			})
 		}
 	})
 
 	t.Run("should return error when no data was previously saved", func(t *testing.T) {
-		dir := &fake.Dir{}
-		db, err := deebee.Open(dir, deebee.WithNewChecksum(fake.NewChecksum))
-		require.NoError(t, err)
+		db := openDB(t, &fake.Dir{})
 		// when
 		reader, err := db.NewReader("state")
 		// then
 		assert.Nil(t, reader)
-		require.Error(t, err)
 		assert.False(t, deebee.IsClientError(err))
 		assert.True(t, deebee.IsDataNotFound(err))
 	})
+}
+
+func notExistingDir() deebee.Dir {
+	dir := &fake.Dir{}
+	notExistingDir := dir.Dir("not-existing")
+	return notExistingDir
 }
 
 func TestDB_NewWriter(t *testing.T) {
 	t.Run("should return error for invalid keys", func(t *testing.T) {
 		for _, key := range invalidKeys {
 			t.Run(key, func(t *testing.T) {
-				dir := &fake.Dir{}
-				db, err := deebee.Open(dir, deebee.WithNewChecksum(fake.NewChecksum))
-				require.NoError(t, err)
+				db := openDB(t, &fake.Dir{})
 				// when
 				writer, err := db.NewWriter(key)
 				// then
 				assert.Nil(t, writer)
-				require.Error(t, err)
 				assert.True(t, deebee.IsClientError(err))
 			})
 		}
@@ -105,16 +108,29 @@ func TestDB_NewWriter(t *testing.T) {
 
 func TestReadAfterWrite(t *testing.T) {
 	t.Run("should read previously written data", func(t *testing.T) {
-		dir := &fake.Dir{}
-		db, err := deebee.Open(dir, deebee.WithNewChecksum(fake.NewChecksum))
-		require.NoError(t, err)
-		data := []byte("data")
-		writeData(t, db, "state", data)
-		// when
-		actual := readData(t, db, "state")
-		// then
-		assert.Equal(t, data, actual)
+		tests := map[string][]byte{
+			"empty":      {},
+			"data":       []byte("data"),
+			"MB of data": makeData(1024*1024, 1),
+		}
+		for name, data := range tests {
+
+			t.Run(name, func(t *testing.T) {
+				db := openDB(t, &fake.Dir{})
+				writeData(t, db, "state", data)
+				// when
+				actual := readData(t, db, "state")
+				// then
+				assert.Equal(t, data, actual)
+			})
+		}
 	})
+}
+
+func openDB(t *testing.T, dir deebee.Dir) *deebee.DB {
+	db, err := deebee.Open(dir, deebee.WithNewChecksum(fake.NewChecksum))
+	require.NoError(t, err)
+	return db
 }
 
 func writeData(t *testing.T, db *deebee.DB, key string, data []byte) {
@@ -132,4 +148,12 @@ func readData(t *testing.T, db *deebee.DB, key string) []byte {
 	actual, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)
 	return actual
+}
+
+func makeData(size int, fillWith byte) []byte {
+	data := make([]byte, size)
+	for i := 0; i < size; i++ {
+		data[i] = fillWith
+	}
+	return data
 }

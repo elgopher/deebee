@@ -8,15 +8,16 @@ type openWriter func(key string) (io.WriteCloser, error)
 
 func openWriterFunc(dir Dir, newChecksum NewChecksum) openWriter {
 	return func(key string) (io.WriteCloser, error) {
-		exists, err := dir.DirExists(key)
+		dataDir := dir.Dir(key)
+		dataDirExists, err := dataDir.Exists()
 		if err != nil {
 			return nil, err
 		}
-		if !exists {
+		if !dataDirExists {
 			if err := dir.Mkdir(key); err != nil {
 				return nil, err
 			}
 		}
-		return dir.Dir(key).FileWriter("data")
+		return dataDir.FileWriter("data")
 	}
 }

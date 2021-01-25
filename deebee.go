@@ -10,6 +10,14 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 	if dir == nil {
 		return nil, errors.New("nil dir")
 	}
+	dirExists, err := dir.Exists()
+	if err != nil {
+		return nil, err
+	}
+	if !dirExists {
+		return nil, newClientError(fmt.Sprintf("database dir %s not found", dir))
+	}
+
 	newChecksum := func() Checksum {
 		return &zeroChecksum{}
 	}
@@ -72,12 +80,12 @@ type Dir interface {
 	FileReader(name string) (io.ReadCloser, error)
 	// Creates a new file for write. Must return error when file already exists
 	FileWriter(name string) (FileWriter, error)
-	// Returns true when directory exists
-	DirExists(name string) (bool, error)
 	// Creates directory. Do nothing when directory already exists
-	Mkdir(name string) error
-	// Return directory with name
+	Mkdir(name string) error // TODO Change with Mkdir()
+	// Return directory with name. Does not check immediately if dir exists.
 	Dir(name string) Dir
+	// Returns true when directory exists
+	Exists() (bool, error)
 	// List files excluding directories
 	ListFiles() ([]string, error)
 }

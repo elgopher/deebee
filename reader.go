@@ -8,20 +8,21 @@ type openReader func(key string) (io.ReadCloser, error)
 
 func openReaderFunc(dir Dir, newChecksum NewChecksum) openReader {
 	return func(key string) (io.ReadCloser, error) {
-		dirExists, err := dir.DirExists(key)
+		dataDir := dir.Dir(key)
+		dataDirExists, err := dataDir.Exists()
 		if err != nil {
 			return nil, err
 		}
-		if !dirExists {
+		if !dataDirExists {
 			return nil, &dataNotFoundError{}
 		}
-		files, err := dir.Dir(key).ListFiles()
+		files, err := dataDir.ListFiles()
 		if err != nil {
 			return nil, err
 		}
 		if len(files) == 0 {
 			return nil, &dataNotFoundError{}
 		}
-		return dir.Dir(key).FileReader("data")
+		return dataDir.FileReader("data")
 	}
 }
