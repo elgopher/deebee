@@ -14,7 +14,7 @@ func openWriterFunc(dir Dir, newChecksum NewChecksum) openWriter {
 			return nil, err
 		}
 		if !dataDirExists {
-			if err := dir.Mkdir(key); err != nil {
+			if err := dataDir.Mkdir(); err != nil {
 				return nil, err
 			}
 		}

@@ -37,8 +37,8 @@ func (o OsDir) Exists() (bool, error) {
 	return f.IsDir(), nil
 }
 
-func (o OsDir) Mkdir(name string) error {
-	err := os.Mkdir(o.path(name), 0775)
+func (o OsDir) Mkdir() error {
+	err := os.Mkdir(string(o), 0775)
 	if os.IsExist(err) {
 		return nil
 	}
