@@ -33,7 +33,7 @@ func TestOpen(t *testing.T) {
 	})
 
 	t.Run("should return client error when database dir does not exist", func(t *testing.T) {
-		db, err := deebee.Open(notExistingDir())
+		db, err := deebee.Open(missingDir())
 		assert.True(t, deebee.IsClientError(err))
 		assert.Nil(t, db)
 	})
@@ -85,10 +85,10 @@ func TestDB_NewReader(t *testing.T) {
 	})
 }
 
-func notExistingDir() deebee.Dir {
+func missingDir() deebee.Dir {
 	dir := &fake.Dir{}
-	notExistingDir := dir.Dir("not-existing")
-	return notExistingDir
+	missingDir := dir.Dir("missing")
+	return missingDir
 }
 
 func TestDB_NewWriter(t *testing.T) {

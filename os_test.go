@@ -20,7 +20,7 @@ func rootDir(t *testing.T) deebee.Dir {
 
 func makeNestedDir(t *testing.T) deebee.Dir {
 	dir := rootDir(t)
-	err := dir.Mkdir("nested")
+	err := dir.Dir("nested").Mkdir()
 	require.NoError(t, err)
 	return dir.Dir("nested")
 }

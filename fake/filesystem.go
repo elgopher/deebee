@@ -10,10 +10,11 @@ import (
 )
 
 type Dir struct {
-	filesByName  map[string]*File
-	dirs         map[string]*Dir
-	doesNotExist bool
-	name         string
+	parent      *Dir
+	filesByName map[string]*File
+	dirs        map[string]*Dir
+	missing     bool
+	name        string
 }
 
 func (f *Dir) FileReader(name string) (io.ReadCloser, error) {
@@ -59,37 +60,41 @@ func (f *Dir) Files() []*File {
 }
 
 func (f *Dir) Exists() (bool, error) {
-	return !f.doesNotExist, nil
+	return !f.missing, nil
 }
 
-func (f *Dir) Mkdir(name string) error {
-	if f.doesNotExist {
-		return fmt.Errorf("dir %s does not exist", f.name)
+func (f *Dir) Mkdir() error {
+	if f.parent != nil {
+		if f.parent.missing {
+			return fmt.Errorf("parent dir %s does not exist", f.parent.name)
+		}
 	}
-	if f.dirs == nil {
-		f.dirs = map[string]*Dir{}
-	}
-	_, alreadyExist := f.dirs[name]
-	if alreadyExist {
-		return nil
-	}
-	f.dirs[name] = &Dir{}
+	f.missing = false
 	return nil
 }
 
 func (f *Dir) Dir(name string) deebee.Dir {
-	dir, dirExists := f.dirs[name]
-	if !dirExists {
-		return &Dir{
-			doesNotExist: true,
-			name:         name,
+	dir, exists := f.dirs[name]
+	if !exists {
+		dir = &Dir{
+			parent:  f,
+			missing: true,
+			name:    name,
 		}
+		f.addDir(name, dir)
 	}
 	return dir
 }
 
+func (f *Dir) addDir(name string, dir *Dir) {
+	if f.dirs == nil {
+		f.dirs = map[string]*Dir{}
+	}
+	f.dirs[name] = dir
+}
+
 func (f *Dir) ListFiles() ([]string, error) {
-	if f.doesNotExist {
+	if f.missing {
 		return nil, fmt.Errorf("dir %s does not exist", f.name)
 	}
 	var files []string

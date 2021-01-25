@@ -80,8 +80,8 @@ type Dir interface {
 	FileReader(name string) (io.ReadCloser, error)
 	// Creates a new file for write. Must return error when file already exists
 	FileWriter(name string) (FileWriter, error)
-	// Creates directory. Do nothing when directory already exists
-	Mkdir(name string) error // TODO Change with Mkdir()
+	// Creates this directory. Do nothing when directory already exists
+	Mkdir() error
 	// Return directory with name. Does not check immediately if dir exists.
 	Dir(name string) Dir
 	// Returns true when directory exists

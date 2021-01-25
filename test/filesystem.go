@@ -36,7 +36,7 @@ func ReadFile(t *testing.T, dir deebee.Dir, name string) []byte {
 }
 
 func Mkdir(t *testing.T, dir deebee.Dir, name string) deebee.Dir {
-	err := dir.Mkdir(name)
+	err := dir.Dir(name).Mkdir()
 	require.NoError(t, err)
 	return dir.Dir(name)
 }
@@ -92,7 +92,7 @@ func TestDir_FileReader(t *testing.T, dirs Dirs) {
 				assert.Nil(t, file)
 			})
 
-			t.Run("should return error when file does not exist", func(t *testing.T) {
+			t.Run("should return error when file is missing", func(t *testing.T) {
 				file, err := newDir(t).FileReader(fileName)
 				require.Error(t, err)
 				assert.Nil(t, file)
@@ -162,16 +162,16 @@ func TestDir_Exists(t *testing.T, dirs Dirs) {
 	for dirType, newDir := range dirs {
 		t.Run(dirType, func(t *testing.T) {
 
-			t.Run("should return false for not existing dir", func(t *testing.T) {
+			t.Run("should return false for missing dir", func(t *testing.T) {
 				dir := newDir(t)
-				exists, err := dir.Dir("not-existing").Exists()
+				exists, err := dir.Dir("missing").Exists()
 				require.NoError(t, err)
 				assert.False(t, exists)
 			})
 
 			t.Run("should return true for previously created dir", func(t *testing.T) {
 				dir := newDir(t)
-				err := dir.Mkdir("existing")
+				err := dir.Dir("existing").Mkdir()
 				require.NoError(t, err)
 				// when
 				exists, err := dir.Dir("existing").Exists()
@@ -179,11 +179,11 @@ func TestDir_Exists(t *testing.T, dirs Dirs) {
 				assert.True(t, exists)
 			})
 
-			t.Run("should return false when parent does not exist", func(t *testing.T) {
+			t.Run("should return false when parent dir is missing", func(t *testing.T) {
 				dir := newDir(t)
-				notExisting := dir.Dir("not-existing")
+				missing := dir.Dir("missing")
 				// when
-				exists, err := notExisting.Dir("another").Exists()
+				exists, err := missing.Dir("another").Exists()
 				require.NoError(t, err)
 				assert.False(t, exists)
 			})
@@ -197,17 +197,17 @@ func TestDir_Mkdir(t *testing.T, dirs Dirs) {
 
 			t.Run("should allow creating dir twice", func(t *testing.T) {
 				dir := newDir(t)
-				err := dir.Mkdir("name")
+				err := dir.Dir("name").Mkdir()
 				require.NoError(t, err)
-				err = dir.Mkdir("name")
+				err = dir.Dir("name").Mkdir()
 				require.NoError(t, err)
 			})
 
-			t.Run("should return error when dir does not exists", func(t *testing.T) {
+			t.Run("should return error when parent dir is missing", func(t *testing.T) {
 				dir := newDir(t)
-				notExistingDir := dir.Dir("not-existing-dir")
+				missingDir := dir.Dir("missing")
 				// when
-				err := notExistingDir.Mkdir("another")
+				err := missingDir.Dir("another").Mkdir()
 				// then
 				require.Error(t, err)
 			})
@@ -263,11 +263,11 @@ func TestDir_ListFiles(t *testing.T, dirs Dirs) {
 				assert.Contains(t, files, "name2")
 			})
 
-			t.Run("should return error when dir does not exists", func(t *testing.T) {
+			t.Run("should return error when dir is missing", func(t *testing.T) {
 				dir := newDir(t)
-				notExistingDir := dir.Dir("not-existing-dir")
+				missingDir := dir.Dir("missing")
 				// when
-				files, err := notExistingDir.ListFiles()
+				files, err := missingDir.ListFiles()
 				// then
 				require.Error(t, err)
 				assert.Nil(t, files)
@@ -275,7 +275,7 @@ func TestDir_ListFiles(t *testing.T, dirs Dirs) {
 
 			t.Run("should return files only", func(t *testing.T) {
 				dir := newDir(t)
-				err := dir.Mkdir("excludedDir")
+				err := dir.Dir("excludedDir").Mkdir()
 				require.NoError(t, err)
 				// when
 				files, err := dir.ListFiles()
@@ -286,7 +286,7 @@ func TestDir_ListFiles(t *testing.T, dirs Dirs) {
 
 			t.Run("should write and read file using different Dir instances", func(t *testing.T) {
 				dir := newDir(t)
-				err := dir.Mkdir("nested")
+				err := dir.Dir("nested").Mkdir()
 				require.NoError(t, err)
 				dir1 := dir.Dir("nested")
 				data := []byte("Hello")
