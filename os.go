@@ -29,8 +29,8 @@ func (o OsDir) path(name string) string {
 	return filepath.Join(string(o), name)
 }
 
-func (o OsDir) DirExists(name string) (bool, error) {
-	f, err := os.Stat(o.path(name))
+func (o OsDir) Exists() (bool, error) {
+	f, err := os.Stat(string(o))
 	if os.IsNotExist(err) {
 		return false, nil
 	}

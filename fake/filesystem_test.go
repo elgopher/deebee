@@ -115,8 +115,8 @@ func TestFile_Read(t *testing.T) {
 	test.TestFileReader_Read(t, dirs)
 }
 
-func TestDir_DirExists(t *testing.T) {
-	test.TestDir_DirExists(t, dirs)
+func TestDir_Exists(t *testing.T) {
+	test.TestDir_Exists(t, dirs)
 }
 
 func TestDir_Mkdir(t *testing.T) {
