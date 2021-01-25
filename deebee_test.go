@@ -19,27 +19,27 @@ func TestOpen(t *testing.T) {
 	})
 
 	t.Run("should open db with no options", func(t *testing.T) {
-		dir := &fake.Dir{}
+		dir := fake.ExistingDir()
 		db, err := deebee.Open(dir)
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("should skip nil option", func(t *testing.T) {
-		dir := &fake.Dir{}
+		dir := fake.ExistingDir()
 		db, err := deebee.Open(dir, nil)
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("should return client error when database dir does not exist", func(t *testing.T) {
-		db, err := deebee.Open(missingDir())
+		db, err := deebee.Open(fake.MissingDir())
 		assert.True(t, deebee.IsClientError(err))
 		assert.Nil(t, db)
 	})
 
 	t.Run("should return error when option returned error", func(t *testing.T) {
-		dir := &fake.Dir{}
+		dir := fake.ExistingDir()
 		expectedError := &testError{}
 		option := func(state *deebee.DB) error {
 			return expectedError
@@ -64,7 +64,7 @@ func TestDB_NewReader(t *testing.T) {
 	t.Run("should return error for invalid keys", func(t *testing.T) {
 		for _, key := range invalidKeys {
 			t.Run(key, func(t *testing.T) {
-				db := openDB(t, &fake.Dir{})
+				db := openDB(t, fake.ExistingDir())
 				// when
 				reader, err := db.NewReader(key)
 				// then
@@ -75,7 +75,7 @@ func TestDB_NewReader(t *testing.T) {
 	})
 
 	t.Run("should return error when no data was previously saved", func(t *testing.T) {
-		db := openDB(t, &fake.Dir{})
+		db := openDB(t, fake.ExistingDir())
 		// when
 		reader, err := db.NewReader("state")
 		// then
@@ -85,17 +85,11 @@ func TestDB_NewReader(t *testing.T) {
 	})
 }
 
-func missingDir() deebee.Dir {
-	dir := &fake.Dir{}
-	missingDir := dir.Dir("missing")
-	return missingDir
-}
-
 func TestDB_NewWriter(t *testing.T) {
 	t.Run("should return error for invalid keys", func(t *testing.T) {
 		for _, key := range invalidKeys {
 			t.Run(key, func(t *testing.T) {
-				db := openDB(t, &fake.Dir{})
+				db := openDB(t, fake.ExistingDir())
 				// when
 				writer, err := db.NewWriter(key)
 				// then
@@ -116,7 +110,7 @@ func TestReadAfterWrite(t *testing.T) {
 		for name, data := range tests {
 
 			t.Run(name, func(t *testing.T) {
-				db := openDB(t, &fake.Dir{})
+				db := openDB(t, fake.ExistingDir())
 				writeData(t, db, "state", data)
 				// when
 				actual := readData(t, db, "state")
