@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jacekolszak/deebee"
+	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,6 +51,13 @@ func TestOpen(t *testing.T) {
 		assert.True(t, errors.Is(err, expectedError))
 		assert.Nil(t, db)
 	})
+
+	t.Run("should return error when Dir.Exists() returns error", func(t *testing.T) {
+		dir := failing.Exists(fake.ExistingDir())
+		db, err := deebee.Open(dir)
+		assert.Error(t, err)
+		assert.Nil(t, db)
+	})
 }
 
 type testError struct{}
@@ -83,6 +91,25 @@ func TestDB_Reader(t *testing.T) {
 		assert.False(t, deebee.IsClientError(err))
 		assert.True(t, deebee.IsDataNotFound(err))
 	})
+
+	t.Run("should return error when DB is failing", func(t *testing.T) {
+		dirs := map[string]deebee.Dir{
+			"ListFiles":  failing.ListFiles(fake.ExistingDir()),
+			"FileReader": failing.FileReader(fake.ExistingDir()),
+		}
+		for name, dir := range dirs {
+
+			t.Run(name, func(t *testing.T) {
+				db := openDB(t, dir)
+				writeData(t, db, "key", []byte("data"))
+				// when
+				reader, err := db.Reader("key")
+				// then
+				assert.Error(t, err)
+				assert.Nil(t, reader)
+			})
+		}
+	})
 }
 
 func TestDB_Writer(t *testing.T) {
@@ -95,6 +122,24 @@ func TestDB_Writer(t *testing.T) {
 				// then
 				assert.Nil(t, writer)
 				assert.True(t, deebee.IsClientError(err))
+			})
+		}
+	})
+
+	t.Run("should return error when DB is failing", func(t *testing.T) {
+		dirs := map[string]deebee.Dir{
+			"Mkdir":      failing.Mkdir(fake.ExistingDir()),
+			"FileWriter": failing.FileWriter(fake.ExistingDir()),
+		}
+		for name, dir := range dirs {
+
+			t.Run(name, func(t *testing.T) {
+				db := openDB(t, dir)
+				// when
+				writer, err := db.Writer("key")
+				// then
+				assert.Error(t, err)
+				assert.Nil(t, writer)
 			})
 		}
 	})
