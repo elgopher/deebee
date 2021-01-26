@@ -19,9 +19,7 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 	}
 
 	s := &DB{
-		dir:        dir,
-		openWriter: openWriterFunc(dir),
-		openReader: openReaderFunc(dir),
+		dir: dir,
 	}
 	for _, apply := range options {
 		if apply != nil {
@@ -37,9 +35,7 @@ type Option func(db *DB) error
 
 // DB stores states. Each state has a key and data.
 type DB struct {
-	dir        Dir
-	openWriter openWriter
-	openReader openReader
+	dir Dir
 }
 
 // Returns Writer for new version of state with given key
@@ -47,7 +43,17 @@ func (s *DB) Writer(key string) (io.WriteCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
-	return s.openWriter(key)
+	dataDir := s.dir.Dir(key)
+	dataDirExists, err := dataDir.Exists()
+	if err != nil {
+		return nil, err
+	}
+	if !dataDirExists {
+		if err := dataDir.Mkdir(); err != nil {
+			return nil, err
+		}
+	}
+	return dataDir.FileWriter("data")
 }
 
 // Returns Reader for state with given key
@@ -55,7 +61,22 @@ func (s *DB) Reader(key string) (io.ReadCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
-	return s.openReader(key)
+	dataDir := s.dir.Dir(key)
+	dataDirExists, err := dataDir.Exists()
+	if err != nil {
+		return nil, err
+	}
+	if !dataDirExists {
+		return nil, &dataNotFoundError{}
+	}
+	files, err := dataDir.ListFiles()
+	if err != nil {
+		return nil, err
+	}
+	if len(files) == 0 {
+		return nil, &dataNotFoundError{}
+	}
+	return dataDir.FileReader("data")
 }
 
 // Dir is a filesystem abstraction useful for unit testing and decoupling the code from `os` package.
