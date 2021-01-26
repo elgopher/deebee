@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 )
 
 func Open(dir Dir, options ...Option) (*DB, error) {
@@ -35,7 +36,9 @@ type Option func(db *DB) error
 
 // DB stores states. Each state has a key and data.
 type DB struct {
-	dir Dir
+	mutex   sync.Mutex
+	dir     Dir
+	version int
 }
 
 // Returns Writer for new version of state with given key
@@ -54,7 +57,16 @@ func (s *DB) Writer(key string) (io.WriteCloser, error) {
 			return nil, err
 		}
 	}
-	return stateDir.FileWriter("data")
+	name := s.nextVersionFilename()
+	return stateDir.FileWriter(name)
+}
+
+func (s *DB) nextVersionFilename() string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	name := fmt.Sprintf("%d", s.version)
+	s.version++
+	return name
 }
 
 // Returns Reader for state with given key
@@ -75,10 +87,11 @@ func (s *DB) Reader(key string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(files) == 0 {
+	dataFile, exists := youngestFilename(toFilenames(files))
+	if !exists {
 		return nil, &dataNotFoundError{}
 	}
-	return stateDir.FileReader("data")
+	return stateDir.FileReader(dataFile.name)
 }
 
 // Dir is a filesystem abstraction useful for unit testing and decoupling the code from `os` package.

@@ -15,7 +15,7 @@ func main() {
 	panicIfError(err)
 
 	saveState(db, "Some very long data :)")
-	//saveState(db, "Updated data even longer than before :)") // update not supported yet
+	saveState(db, "Updated data even longer than before :)")
 	data := readState(db)
 	fmt.Println("Data read from disk:", data)
 }
