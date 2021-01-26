@@ -164,6 +164,17 @@ func TestReadAfterWrite(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("after update should read last written data", func(t *testing.T) {
+		db := openDB(t, fake.ExistingDir())
+		updatedData := "updated"
+		writeData(t, db, "state", []byte("data"))
+		writeData(t, db, "state", []byte(updatedData))
+		// when
+		actual := readData(t, db, "state")
+		// then
+		assert.Equal(t, updatedData, string(actual))
+	})
 }
 
 func openDB(t *testing.T, dir deebee.Dir) *deebee.DB {
