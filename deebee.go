@@ -18,14 +18,10 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 		return nil, newClientError(fmt.Sprintf("database dir %s not found", dir))
 	}
 
-	newChecksum := func() Checksum {
-		return &zeroChecksum{}
-	}
 	s := &DB{
-		dir:         dir,
-		newChecksum: newChecksum,
-		openWriter:  openWriterFunc(dir, newChecksum),
-		openReader:  openReaderFunc(dir, newChecksum),
+		dir:        dir,
+		openWriter: openWriterFunc(dir),
+		openReader: openReaderFunc(dir),
 	}
 	for _, apply := range options {
 		if apply != nil {
@@ -40,10 +36,9 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 type Option func(state *DB) error
 
 type DB struct {
-	dir         Dir
-	newChecksum NewChecksum
-	openWriter  openWriter
-	openReader  openReader
+	dir        Dir
+	openWriter openWriter
+	openReader openReader
 }
 
 func (s *DB) NewWriter(key string) (io.WriteCloser, error) {
@@ -58,20 +53,6 @@ func (s *DB) NewReader(key string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	return s.openReader(key)
-}
-
-func WithNewChecksum(newChecksum NewChecksum) Option {
-	return func(state *DB) error {
-		state.newChecksum = newChecksum
-		return nil
-	}
-}
-
-type NewChecksum func() Checksum
-
-type Checksum interface {
-	Add(b []byte)
-	Calculate() uint32
 }
 
 // Names with file separators are not supported
