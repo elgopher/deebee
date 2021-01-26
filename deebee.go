@@ -43,6 +43,7 @@ func (s *DB) Writer(key string) (io.WriteCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
+
 	stateDir := s.dir.Dir(key)
 	stateDirExists, err := stateDir.Exists()
 	if err != nil {
@@ -61,6 +62,7 @@ func (s *DB) Reader(key string) (io.ReadCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
+
 	stateDir := s.dir.Dir(key)
 	stateDirExists, err := stateDir.Exists()
 	if err != nil {
