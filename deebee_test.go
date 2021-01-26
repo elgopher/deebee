@@ -41,7 +41,7 @@ func TestOpen(t *testing.T) {
 	t.Run("should return error when option returned error", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		expectedError := &testError{}
-		option := func(state *deebee.DB) error {
+		option := func(db *deebee.DB) error {
 			return expectedError
 		}
 		// when
