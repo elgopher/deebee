@@ -122,7 +122,7 @@ func TestReadAfterWrite(t *testing.T) {
 }
 
 func openDB(t *testing.T, dir deebee.Dir) *deebee.DB {
-	db, err := deebee.Open(dir, deebee.WithNewChecksum(fake.NewChecksum))
+	db, err := deebee.Open(dir)
 	require.NoError(t, err)
 	return db
 }

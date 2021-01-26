@@ -6,7 +6,7 @@ import (
 
 type openReader func(key string) (io.ReadCloser, error)
 
-func openReaderFunc(dir Dir, newChecksum NewChecksum) openReader {
+func openReaderFunc(dir Dir) openReader {
 	return func(key string) (io.ReadCloser, error) {
 		dataDir := dir.Dir(key)
 		dataDirExists, err := dataDir.Exists()

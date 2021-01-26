@@ -10,6 +10,7 @@ import (
 func main() {
 	dir := deebee.OsDir(tempDir())
 	fmt.Println("Database directory:", dir)
+
 	db, err := deebee.Open(dir)
 	panicIfError(err)
 
