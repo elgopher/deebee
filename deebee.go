@@ -43,17 +43,17 @@ func (s *DB) Writer(key string) (io.WriteCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
-	dataDir := s.dir.Dir(key)
-	dataDirExists, err := dataDir.Exists()
+	stateDir := s.dir.Dir(key)
+	stateDirExists, err := stateDir.Exists()
 	if err != nil {
 		return nil, err
 	}
-	if !dataDirExists {
-		if err := dataDir.Mkdir(); err != nil {
+	if !stateDirExists {
+		if err := stateDir.Mkdir(); err != nil {
 			return nil, err
 		}
 	}
-	return dataDir.FileWriter("data")
+	return stateDir.FileWriter("data")
 }
 
 // Returns Reader for state with given key
@@ -61,22 +61,22 @@ func (s *DB) Reader(key string) (io.ReadCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
-	dataDir := s.dir.Dir(key)
-	dataDirExists, err := dataDir.Exists()
+	stateDir := s.dir.Dir(key)
+	stateDirExists, err := stateDir.Exists()
 	if err != nil {
 		return nil, err
 	}
-	if !dataDirExists {
+	if !stateDirExists {
 		return nil, &dataNotFoundError{}
 	}
-	files, err := dataDir.ListFiles()
+	files, err := stateDir.ListFiles()
 	if err != nil {
 		return nil, err
 	}
 	if len(files) == 0 {
 		return nil, &dataNotFoundError{}
 	}
-	return dataDir.FileReader("data")
+	return stateDir.FileReader("data")
 }
 
 // Dir is a filesystem abstraction useful for unit testing and decoupling the code from `os` package.
