@@ -60,13 +60,13 @@ func (e testError) Error() string {
 
 var invalidKeys = []string{"", " a", "a ", ".", "..", "/", "a/b", "\\", "a\\b"}
 
-func TestDB_NewReader(t *testing.T) {
+func TestDB_Reader(t *testing.T) {
 	t.Run("should return error for invalid keys", func(t *testing.T) {
 		for _, key := range invalidKeys {
 			t.Run(key, func(t *testing.T) {
 				db := openDB(t, fake.ExistingDir())
 				// when
-				reader, err := db.NewReader(key)
+				reader, err := db.Reader(key)
 				// then
 				assert.Nil(t, reader)
 				assert.True(t, deebee.IsClientError(err))
@@ -77,7 +77,7 @@ func TestDB_NewReader(t *testing.T) {
 	t.Run("should return error when no data was previously saved", func(t *testing.T) {
 		db := openDB(t, fake.ExistingDir())
 		// when
-		reader, err := db.NewReader("state")
+		reader, err := db.Reader("state")
 		// then
 		assert.Nil(t, reader)
 		assert.False(t, deebee.IsClientError(err))
@@ -85,13 +85,13 @@ func TestDB_NewReader(t *testing.T) {
 	})
 }
 
-func TestDB_NewWriter(t *testing.T) {
+func TestDB_Writer(t *testing.T) {
 	t.Run("should return error for invalid keys", func(t *testing.T) {
 		for _, key := range invalidKeys {
 			t.Run(key, func(t *testing.T) {
 				db := openDB(t, fake.ExistingDir())
 				// when
-				writer, err := db.NewWriter(key)
+				writer, err := db.Writer(key)
 				// then
 				assert.Nil(t, writer)
 				assert.True(t, deebee.IsClientError(err))
@@ -128,7 +128,7 @@ func openDB(t *testing.T, dir deebee.Dir) *deebee.DB {
 }
 
 func writeData(t *testing.T, db *deebee.DB, key string, data []byte) {
-	writer, err := db.NewWriter(key)
+	writer, err := db.Writer(key)
 	require.NoError(t, err)
 	_, err = writer.Write(data)
 	require.NoError(t, err)
@@ -137,7 +137,7 @@ func writeData(t *testing.T, db *deebee.DB, key string, data []byte) {
 }
 
 func readData(t *testing.T, db *deebee.DB, key string) []byte {
-	reader, err := db.NewReader(key)
+	reader, err := db.Reader(key)
 	require.NoError(t, err)
 	actual, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)

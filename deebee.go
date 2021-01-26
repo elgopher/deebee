@@ -41,14 +41,14 @@ type DB struct {
 	openReader openReader
 }
 
-func (s *DB) NewWriter(key string) (io.WriteCloser, error) {
+func (s *DB) Writer(key string) (io.WriteCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
 	return s.openWriter(key)
 }
 
-func (s *DB) NewReader(key string) (io.ReadCloser, error) {
+func (s *DB) Reader(key string) (io.ReadCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}

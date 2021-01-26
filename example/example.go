@@ -21,7 +21,7 @@ func main() {
 }
 
 func saveState(db *deebee.DB, data string) {
-	writer, err := db.NewWriter("state")
+	writer, err := db.Writer("state")
 	panicIfError(err)
 
 	_, err = writer.Write([]byte(data))
@@ -35,7 +35,7 @@ func saveState(db *deebee.DB, data string) {
 }
 
 func readState(db *deebee.DB) string {
-	reader, err := db.NewReader("state")
+	reader, err := db.Reader("state")
 	panicIfError(err)
 	defer reader.Close()
 
