@@ -33,14 +33,16 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 	return s, nil
 }
 
-type Option func(state *DB) error
+type Option func(db *DB) error
 
+// DB stores states. Each state has a key and data.
 type DB struct {
 	dir        Dir
 	openWriter openWriter
 	openReader openReader
 }
 
+// Returns Writer for new version of state with given key
 func (s *DB) Writer(key string) (io.WriteCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
@@ -48,6 +50,7 @@ func (s *DB) Writer(key string) (io.WriteCloser, error) {
 	return s.openWriter(key)
 }
 
+// Returns Reader for state with given key
 func (s *DB) Reader(key string) (io.ReadCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
@@ -55,6 +58,8 @@ func (s *DB) Reader(key string) (io.ReadCloser, error) {
 	return s.openReader(key)
 }
 
+// Dir is a filesystem abstraction useful for unit testing and decoupling the code from `os` package.
+//
 // Names with file separators are not supported
 type Dir interface {
 	// Opens an existing file for read. Must return error when file does not exist
