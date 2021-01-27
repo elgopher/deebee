@@ -1,12 +1,17 @@
 package deebee
 
 import (
+	"fmt"
 	"strconv"
 )
 
 type filename struct {
 	name    string
 	version int
+}
+
+func generateFilename(version int) string {
+	return fmt.Sprintf("%d", version)
 }
 
 func parseFilename(file string) (filename, error) {
