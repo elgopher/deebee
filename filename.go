@@ -26,7 +26,9 @@ func (f filename) youngerThan(filename filename) bool {
 	return f.version > filename.version
 }
 
-func toFilenames(files []string) []filename {
+type filenames []filename
+
+func toFilenames(files []string) filenames {
 	var names []filename
 	for _, file := range files {
 		f, err := parseFilename(file)
@@ -37,7 +39,7 @@ func toFilenames(files []string) []filename {
 	return names
 }
 
-func youngestFilename(names []filename) (filename, bool) {
+func (names filenames) youngestFilename() (filename, bool) {
 	if len(names) == 0 {
 		return filename{}, false
 	}
