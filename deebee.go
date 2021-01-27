@@ -71,7 +71,7 @@ func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
 		return "0", nil
 	}
 	version := filename.version + 1
-	name := fmt.Sprintf("%d", version)
+	name := generateFilename(version)
 	return name, nil
 }
 
