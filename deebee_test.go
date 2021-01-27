@@ -101,7 +101,9 @@ func TestDB_Reader(t *testing.T) {
 
 			t.Run(name, func(t *testing.T) {
 				db := openDB(t, dir)
-				writeData(t, db, "key", []byte("data"))
+				if err := writeDataOrError(db, "key", []byte("data")); err != nil {
+					return
+				}
 				// when
 				reader, err := db.Reader("key")
 				// then
@@ -146,6 +148,8 @@ func TestDB_Writer(t *testing.T) {
 }
 
 func TestReadAfterWrite(t *testing.T) {
+	const key = "state"
+
 	t.Run("should read previously written data", func(t *testing.T) {
 		tests := map[string][]byte{
 			"empty":      {},
@@ -156,9 +160,9 @@ func TestReadAfterWrite(t *testing.T) {
 
 			t.Run(name, func(t *testing.T) {
 				db := openDB(t, fake.ExistingDir())
-				writeData(t, db, "state", data)
+				writeData(t, db, key, data)
 				// when
-				actual := readData(t, db, "state")
+				actual := readData(t, db, key)
 				// then
 				assert.Equal(t, data, actual)
 			})
@@ -168,10 +172,24 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("after update should read last written data", func(t *testing.T) {
 		db := openDB(t, fake.ExistingDir())
 		updatedData := "updated"
-		writeData(t, db, "state", []byte("data"))
-		writeData(t, db, "state", []byte(updatedData))
+		writeData(t, db, key, []byte("data"))
+		writeData(t, db, key, []byte(updatedData))
 		// when
-		actual := readData(t, db, "state")
+		actual := readData(t, db, key)
+		// then
+		assert.Equal(t, updatedData, string(actual))
+	})
+
+	t.Run("should update data using different db instance", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		db := openDB(t, dir)
+		writeData(t, db, key, []byte("data"))
+
+		anotherDb := openDB(t, dir)
+		updatedData := "updated"
+		writeData(t, anotherDb, key, []byte(updatedData))
+		// when
+		actual := readData(t, anotherDb, key)
 		// then
 		assert.Equal(t, updatedData, string(actual))
 	})
@@ -190,6 +208,23 @@ func writeData(t *testing.T, db *deebee.DB, key string, data []byte) {
 	require.NoError(t, err)
 	err = writer.Close()
 	require.NoError(t, err)
+}
+
+func writeDataOrError(db *deebee.DB, key string, data []byte) error {
+	writer, err := db.Writer(key)
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(data)
+	if err != nil {
+		_ = writer.Close()
+		return err
+	}
+	err = writer.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func readData(t *testing.T, db *deebee.DB, key string) []byte {
