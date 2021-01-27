@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sync"
 )
 
 func Open(dir Dir, options ...Option) (*DB, error) {
@@ -36,18 +35,16 @@ type Option func(db *DB) error
 
 // DB stores states. Each state has a key and data.
 type DB struct {
-	mutex   sync.Mutex
-	dir     Dir
-	version int
+	dir Dir
 }
 
 // Returns Writer for new version of state with given key
-func (s *DB) Writer(key string) (io.WriteCloser, error) {
+func (db *DB) Writer(key string) (io.WriteCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
 
-	stateDir := s.dir.Dir(key)
+	stateDir := db.dir.Dir(key)
 	stateDirExists, err := stateDir.Exists()
 	if err != nil {
 		return nil, err
@@ -57,25 +54,34 @@ func (s *DB) Writer(key string) (io.WriteCloser, error) {
 			return nil, err
 		}
 	}
-	name := s.nextVersionFilename()
+	name, err := db.nextVersionFilename(stateDir)
+	if err != nil {
+		return nil, err
+	}
 	return stateDir.FileWriter(name)
 }
 
-func (s *DB) nextVersionFilename() string {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	name := fmt.Sprintf("%d", s.version)
-	s.version++
-	return name
+func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
+	files, err := stateDir.ListFiles()
+	if err != nil {
+		return "", err
+	}
+	filename, exists := youngestFilename(toFilenames(files))
+	if !exists {
+		return "0", nil
+	}
+	version := filename.version + 1
+	name := fmt.Sprintf("%d", version)
+	return name, nil
 }
 
 // Returns Reader for state with given key
-func (s *DB) Reader(key string) (io.ReadCloser, error) {
+func (db *DB) Reader(key string) (io.ReadCloser, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
 
-	stateDir := s.dir.Dir(key)
+	stateDir := db.dir.Dir(key)
 	stateDirExists, err := stateDir.Exists()
 	if err != nil {
 		return nil, err

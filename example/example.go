@@ -51,7 +51,5 @@ func panicIfError(err error) {
 }
 
 func tempDir() string {
-	dir, err := ioutil.TempDir("", "deebee")
-	panicIfError(err)
-	return dir
+	return "/mnt/nvme/test"
 }
