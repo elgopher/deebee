@@ -66,7 +66,7 @@ func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	filename, exists := youngestFilename(toFilenames(files))
+	filename, exists := toFilenames(files).youngestFilename()
 	if !exists {
 		return "0", nil
 	}
@@ -93,7 +93,7 @@ func (db *DB) Reader(key string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	dataFile, exists := youngestFilename(toFilenames(files))
+	dataFile, exists := toFilenames(files).youngestFilename()
 	if !exists {
 		return nil, &dataNotFoundError{}
 	}
