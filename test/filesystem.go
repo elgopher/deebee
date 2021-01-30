@@ -30,7 +30,11 @@ func WriteFile(t *testing.T, dir deebee.Dir, name string, data []byte) {
 func ReadFile(t *testing.T, dir deebee.Dir, name string) []byte {
 	reader, err := dir.FileReader(name)
 	require.NoError(t, err)
+
 	data, err := ioutil.ReadAll(reader)
+	require.NoError(t, err)
+
+	err = reader.Close()
 	require.NoError(t, err)
 	return data
 }
@@ -123,6 +127,37 @@ func TestFileReader_Read(t *testing.T, dirs Dirs) {
 				actual := ReadFile(t, dir, fileName)
 				// then
 				assert.Equal(t, data, actual)
+			})
+
+			t.Run("should read previously written data twice", func(t *testing.T) {
+				dir := newDir(t)
+				data := []byte("payload")
+				WriteFile(t, dir, fileName, data)
+				ReadFile(t, dir, fileName)
+				// when
+				actual := ReadFile(t, dir, fileName)
+				// then
+				assert.Equal(t, data, actual)
+			})
+
+			t.Run("should read previously written data in parallel", func(t *testing.T) {
+				dir := newDir(t)
+				data := []byte("AB")
+				WriteFile(t, dir, fileName, data)
+				reader1, err := dir.FileReader(fileName)
+				require.NoError(t, err)
+				reader2, err := dir.FileReader(fileName)
+				require.NoError(t, err)
+				// when
+				output1 := make([]byte, 1)
+				output2 := make([]byte, 1)
+				_, err = reader1.Read(output1)
+				require.NoError(t, err)
+				_, err = reader2.Read(output2)
+				require.NoError(t, err)
+				// then
+				assert.Equal(t, "A", string(output1))
+				assert.Equal(t, "A", string(output2))
 			})
 
 			t.Run("should read empty slice after EOF", func(t *testing.T) {

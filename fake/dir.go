@@ -33,6 +33,7 @@ func newDir(name string, missing bool, parent *dir) *dir {
 
 type Dir interface {
 	deebee.Dir
+	FakeDir(name string) Dir
 	Files() []*File
 }
 
@@ -52,8 +53,25 @@ func (f *dir) FileReader(name string) (io.ReadCloser, error) {
 	if !exists {
 		return nil, fmt.Errorf("file %s does not exist", name)
 	}
-	file.closed = false
-	return file, nil
+	return &reader{name: name, data: file.data}, nil
+}
+
+type reader struct {
+	name   string
+	data   bytes.Buffer
+	closed bool
+}
+
+func (r *reader) Read(p []byte) (n int, err error) {
+	if r.closed {
+		return 0, fmt.Errorf("cant read: file %s is closed", r.name)
+	}
+	return r.data.Read(p)
+}
+
+func (r *reader) Close() error {
+	r.closed = true
+	return nil
 }
 
 func (f *dir) FileWriter(name string) (deebee.FileWriter, error) {
@@ -94,6 +112,10 @@ func (f *dir) Mkdir() error {
 }
 
 func (f *dir) Dir(name string) deebee.Dir {
+	return f.FakeDir(name)
+}
+
+func (f *dir) FakeDir(name string) Dir {
 	d, exists := f.dirsByName[name]
 	if !exists {
 		d = newDir(name, true, f)
@@ -153,9 +175,7 @@ func (f *File) Close() error {
 	return nil
 }
 
-func (f *File) Read(p []byte) (n int, err error) {
-	if f.closed {
-		return 0, fmt.Errorf("cant read: file %s is closed", f.name)
-	}
-	return f.data.Read(p)
+func (f *File) Corrupt() {
+	middleOfTheFile := f.data.Len() / 2
+	f.data.Bytes()[middleOfTheFile]++
 }
