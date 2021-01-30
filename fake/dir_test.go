@@ -1,6 +1,7 @@
 package fake_test
 
 import (
+	"io/ioutil"
 	"testing"
 
 	"github.com/jacekolszak/deebee"
@@ -16,6 +17,7 @@ var dirs = map[string]test.NewDir{
 	"existing root": existingRootDir,
 	"created root":  makeRootDir,
 	"nested":        makeNestedDir,
+	"fakeDir":       fakeDir,
 }
 
 func existingRootDir(t *testing.T) deebee.Dir {
@@ -34,6 +36,13 @@ func makeNestedDir(t *testing.T) deebee.Dir {
 	err := dir.Dir("nested").Mkdir()
 	require.NoError(t, err)
 	return dir.Dir("nested")
+}
+
+func fakeDir(t *testing.T) deebee.Dir {
+	dir := fake.ExistingDir()
+	err := dir.Dir("nested").Mkdir()
+	require.NoError(t, err)
+	return dir.FakeDir("nested")
 }
 
 func TestDir_FileWriter(t *testing.T) {
@@ -137,4 +146,43 @@ func TestDir_Dir(t *testing.T) {
 
 func TestDir_ListFiles(t *testing.T) {
 	test.TestDir_ListFiles(t, dirs)
+}
+
+func TestFile_Corrupt(t *testing.T) {
+	t.Run("should corrupt file", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		data := []byte("data")
+		test.WriteFile(t, dir, "file", data)
+		file := dir.Files()[0]
+		// when
+		file.Corrupt()
+		// then
+		actual := test.ReadFile(t, dir, "file")
+		assert.NotEqual(t, data, actual)
+	})
+
+	t.Run("should corrupt already open file", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		data := []byte("data")
+		test.WriteFile(t, dir, "file", data)
+		reader, err := dir.FileReader("file")
+		require.NoError(t, err)
+		file := dir.Files()[0]
+		// when
+		file.Corrupt()
+		// then
+		actual, err := ioutil.ReadAll(reader)
+		require.NoError(t, err)
+		assert.NotEqual(t, data, actual)
+	})
+}
+
+func TestDir_FakeDir(t *testing.T) {
+	t.Run("should return FakeDir with additional extending Dir", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		test.Mkdir(t, dir, "dir")
+		// when
+		fakeDir := dir.FakeDir("dir")
+		assert.NotNil(t, fakeDir)
+	})
 }

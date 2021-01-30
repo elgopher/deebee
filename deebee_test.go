@@ -180,6 +180,18 @@ func TestReadAfterWrite(t *testing.T) {
 		assert.Equal(t, updatedData, string(actual))
 	})
 
+	t.Run("after two updates should read last written data", func(t *testing.T) {
+		db := openDB(t, fake.ExistingDir())
+		updatedData := "updated"
+		writeData(t, db, key, []byte("data1"))
+		writeData(t, db, key, []byte("data2"))
+		writeData(t, db, key, []byte(updatedData))
+		// when
+		actual := readData(t, db, key)
+		// then
+		assert.Equal(t, updatedData, string(actual))
+	})
+
 	t.Run("should update data using different db instance", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		db := openDB(t, dir)
@@ -192,6 +204,60 @@ func TestReadAfterWrite(t *testing.T) {
 		actual := readData(t, anotherDb, key)
 		// then
 		assert.Equal(t, updatedData, string(actual))
+	})
+
+	t.Run("should return data not found error when all files are corrupted", func(t *testing.T) {
+		tests := map[string]int{
+			"no updates": 0,
+			"one update": 1,
+		}
+		for name, numberOfUpdates := range tests {
+
+			t.Run(name, func(t *testing.T) {
+				dir := fake.ExistingDir()
+				db := openDB(t, dir)
+				writeData(t, db, key, []byte("new"))
+
+				for i := 0; i < numberOfUpdates; i++ {
+					writeData(t, db, key, []byte("update"))
+				}
+				// when
+				corruptAllFiles(dir, key)
+				reader, err := db.Reader(key)
+				// then
+				require.Error(t, err)
+				assert.True(t, deebee.IsDataNotFound(err))
+				assert.Nil(t, reader)
+			})
+		}
+	})
+
+	t.Run("should return error when file was integral during verification, but became corrupted during read", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		db := openDB(t, dir)
+		writeData(t, db, key, []byte("data"))
+		reader, err := db.Reader(key)
+		require.NoError(t, err)
+		corruptAllFiles(dir, key)
+		_, err = ioutil.ReadAll(reader)
+		require.NoError(t, err)
+		// when
+		err = reader.Close()
+		// then
+		assert.Error(t, err)
+	})
+
+	t.Run("should return last not corrupted data", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		db := openDB(t, dir)
+		writeData(t, db, key, []byte("old"))
+		writeData(t, db, key, []byte("new"))
+		// when
+		corruptLastAddedFile(dir, key)
+		reader, err := db.Reader(key)
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, reader)
 	})
 }
 
@@ -232,6 +298,8 @@ func readData(t *testing.T, db *deebee.DB, key string) []byte {
 	require.NoError(t, err)
 	actual, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)
+	err = reader.Close()
+	require.NoError(t, err)
 	return actual
 }
 
@@ -241,4 +309,18 @@ func makeData(size int, fillWith byte) []byte {
 		data[i] = fillWith
 	}
 	return data
+}
+
+func corruptAllFiles(dir fake.Dir, key string) {
+	stateDir := dir.FakeDir(key)
+	files := stateDir.Files()
+	for _, file := range files {
+		file.Corrupt()
+	}
+}
+
+func corruptLastAddedFile(dir fake.Dir, key string) {
+	stateDir := dir.FakeDir(key)
+	files := stateDir.Files()
+	files[len(files)-1].Corrupt()
 }

@@ -2,6 +2,7 @@ package deebee
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 )
 
@@ -28,7 +29,19 @@ func (f filename) youngerThan(filename filename) bool {
 
 type filenames []filename
 
-func toFilenames(files []string) filenames {
+func (f filenames) Len() int {
+	return len(f)
+}
+
+func (f filenames) Less(i, j int) bool {
+	return f[j].version < f[i].version
+}
+
+func (f filenames) Swap(i, j int) {
+	f[i], f[j] = f[j], f[i]
+}
+
+func filterDatafiles(files []string) filenames {
 	var names []filename
 	for _, file := range files {
 		f, err := parseFilename(file)
@@ -39,15 +52,20 @@ func toFilenames(files []string) filenames {
 	return names
 }
 
-func (names filenames) youngestFilename() (filename, bool) {
-	if len(names) == 0 {
+func (f filenames) youngestFilename() (filename, bool) {
+	if len(f) == 0 {
 		return filename{}, false
 	}
-	youngest := names[0]
-	for _, name := range names {
+	youngest := f[0]
+	for _, name := range f {
 		if name.youngerThan(youngest) {
 			youngest = name
 		}
 	}
 	return youngest, true
+}
+
+func sortByVersionDescending(f filenames) filenames {
+	sort.Sort(f)
+	return f
 }

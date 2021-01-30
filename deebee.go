@@ -20,6 +20,10 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 
 	s := &DB{
 		dir: dir,
+		fileIntegrityChecker: &checksumIntegrityChecker{
+			newSum:                 newFnv128a,
+			latestIntegralFilename: lazyLatestIntegralFilename,
+		},
 	}
 	for _, apply := range options {
 		if apply != nil {
@@ -35,7 +39,8 @@ type Option func(db *DB) error
 
 // DB stores states. Each state has a key and data.
 type DB struct {
-	dir Dir
+	dir                  Dir
+	fileIntegrityChecker FileIntegrityChecker
 }
 
 // Returns Writer for new version of state with given key
@@ -58,7 +63,11 @@ func (db *DB) Writer(key string) (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stateDir.FileWriter(name)
+	writer, err := stateDir.FileWriter(name)
+	if err != nil {
+		return nil, err
+	}
+	return db.fileIntegrityChecker.DecorateWriter(writer, stateDir, name), nil
 }
 
 func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
@@ -66,13 +75,12 @@ func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	filename, exists := toFilenames(files).youngestFilename()
+	filename, exists := filterDatafiles(files).youngestFilename()
 	if !exists {
 		return "0", nil
 	}
 	version := filename.version + 1
-	name := generateFilename(version)
-	return name, nil
+	return generateFilename(version), nil
 }
 
 // Returns Reader for state with given key
@@ -89,36 +97,13 @@ func (db *DB) Reader(key string) (io.ReadCloser, error) {
 	if !stateDirExists {
 		return nil, &dataNotFoundError{}
 	}
-	files, err := stateDir.ListFiles()
+	file, err := db.fileIntegrityChecker.LatestIntegralFilename(stateDir)
 	if err != nil {
 		return nil, err
 	}
-	dataFile, exists := toFilenames(files).youngestFilename()
-	if !exists {
-		return nil, &dataNotFoundError{}
+	reader, err := stateDir.FileReader(file)
+	if err != nil {
+		return nil, err
 	}
-	return stateDir.FileReader(dataFile.name)
-}
-
-// Dir is a filesystem abstraction useful for unit testing and decoupling the code from `os` package.
-//
-// Names with file separators are not supported
-type Dir interface {
-	// Opens an existing file for read. Must return error when file does not exist
-	FileReader(name string) (io.ReadCloser, error)
-	// Creates a new file for write. Must return error when file already exists
-	FileWriter(name string) (FileWriter, error)
-	// Creates this directory. Do nothing when directory already exists
-	Mkdir() error
-	// Return directory with name. Does not check immediately if dir exists.
-	Dir(name string) Dir
-	// Returns true when directory exists
-	Exists() (bool, error)
-	// List files excluding directories
-	ListFiles() ([]string, error)
-}
-
-type FileWriter interface {
-	io.WriteCloser
-	Sync() error
+	return db.fileIntegrityChecker.DecorateReader(reader, stateDir, file), nil
 }
