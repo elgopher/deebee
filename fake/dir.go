@@ -142,6 +142,10 @@ type File struct {
 	closed      bool
 }
 
+func (f *File) Name() string {
+	return f.name
+}
+
 func (f *File) Empty() bool {
 	return f.data.Len() == 0
 }

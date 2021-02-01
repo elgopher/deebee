@@ -83,7 +83,9 @@ func TestFile_Close(t *testing.T) {
 		require.NoError(t, err)
 		actualFiles := dir.Files()
 		assert.Len(t, actualFiles, 1)
-		assert.Equal(t, data, actualFiles[0].Data())
+		actualFile := actualFiles[0]
+		assert.Equal(t, data, actualFile.Data())
+		assert.Equal(t, fileName, actualFile.Name())
 	})
 }
 
