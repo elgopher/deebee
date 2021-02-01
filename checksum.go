@@ -20,7 +20,10 @@ func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option 
 				return fmt.Errorf("error applying ChecksumIntegrityChecker option: %w", err)
 			}
 		}
-		db.fileIntegrityChecker = checker
+
+		if err := db.setFileIntegrityChecker(checker); err != nil {
+			return err
+		}
 		return nil
 	}
 }

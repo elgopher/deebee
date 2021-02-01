@@ -2,6 +2,7 @@ package deebee_test
 
 import (
 	"errors"
+	"io"
 	"io/ioutil"
 	"testing"
 
@@ -259,6 +260,41 @@ func TestReadAfterWrite(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, reader)
 	})
+}
+
+func TestFileIntegrityChecker(t *testing.T) {
+	t.Run("should use custom FileIntegrityChecker", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		db, err := deebee.Open(dir, deebee.CustomIntegrityChecker(&nullIntegrityChecker{}))
+		require.NoError(t, err)
+		notExpected := []byte("data")
+		writeData(t, db, "key", notExpected)
+		// when
+		corruptAllFiles(dir, "key")
+		// then
+		data := readData(t, db, "key")
+		assert.NotEqual(t, notExpected, data)
+	})
+}
+
+//  Does not check integrity at all
+type nullIntegrityChecker struct{}
+
+// Returns random file
+func (c *nullIntegrityChecker) LatestIntegralFilename(dir deebee.Dir) (string, error) {
+	files, err := dir.ListFiles()
+	if err != nil {
+		return "", err
+	}
+	return files[0], nil
+}
+
+func (c *nullIntegrityChecker) DecorateReader(reader io.ReadCloser, dir deebee.Dir, name string) io.ReadCloser {
+	return reader
+}
+
+func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, dir deebee.Dir, name string) io.WriteCloser {
+	return writer
 }
 
 func openDB(t *testing.T, dir deebee.Dir) *deebee.DB {
