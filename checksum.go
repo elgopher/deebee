@@ -9,32 +9,54 @@ import (
 	"io/ioutil"
 )
 
+func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option {
+	return func(db *DB) error {
+		checker := &checksumIntegrityChecker{
+			algorithm:              Fnv128a,
+			latestIntegralFilename: lazyLatestIntegralFilename,
+		}
+		for _, apply := range options {
+			if err := apply(checker); err != nil {
+				return fmt.Errorf("error applying ChecksumIntegrityChecker option: %w", err)
+			}
+		}
+		db.fileIntegrityChecker = checker
+		return nil
+	}
+}
+
+type ChecksumIntegrityCheckerOption func(*checksumIntegrityChecker) error
+
+func Algorithm(algorithm ChecksumAlgorithm) ChecksumIntegrityCheckerOption {
+	return func(checker *checksumIntegrityChecker) error {
+		checker.algorithm = algorithm
+		return nil
+	}
+}
+
+type ChecksumAlgorithm interface {
+	NewSum() Sum
+	FileExtension() string
+}
+
 type Sum interface {
 	io.Writer
 	Marshal() []byte
 }
 
-type FileIntegrityChecker interface {
-	LatestIntegralFilename(dir Dir) (string, error)
-	// Should return error on Close when checksum verification failed
-	DecorateReader(reader io.ReadCloser, dir Dir, name string) io.ReadCloser
-	// Should store checksum somewhere on Close.
-	DecorateWriter(writer io.WriteCloser, dir Dir, name string) io.WriteCloser
-}
-
 type checksumIntegrityChecker struct {
-	newSum                 func() Sum
-	latestIntegralFilename func(dir Dir, newSum func() Sum) (string, error)
+	algorithm              ChecksumAlgorithm
+	latestIntegralFilename func(dir Dir, algorithm ChecksumAlgorithm) (string, error)
 }
 
 func (c *checksumIntegrityChecker) LatestIntegralFilename(dir Dir) (string, error) {
-	return c.latestIntegralFilename(dir, c.newSum)
+	return c.latestIntegralFilename(dir, c.algorithm)
 }
 
 func (c *checksumIntegrityChecker) DecorateReader(reader io.ReadCloser, dir Dir, name string) io.ReadCloser {
 	return &checksumReader{
 		reader: reader,
-		sum:    c.newSum(),
+		sum:    c.algorithm.NewSum(),
 		name:   name,
 		dir:    dir,
 	}
@@ -42,14 +64,15 @@ func (c *checksumIntegrityChecker) DecorateReader(reader io.ReadCloser, dir Dir,
 
 func (c *checksumIntegrityChecker) DecorateWriter(writer io.WriteCloser, dir Dir, name string) io.WriteCloser {
 	return &checksumWriter{
-		writer: writer,
-		sum:    c.newSum(),
-		name:   name,
-		dir:    dir,
+		writer:           writer,
+		sum:              c.algorithm.NewSum(),
+		name:             name,
+		checksumFilename: name + "." + c.algorithm.FileExtension(),
+		dir:              dir,
 	}
 }
 
-func lazyLatestIntegralFilename(dir Dir, newSum func() Sum) (string, error) {
+func lazyLatestIntegralFilename(dir Dir, algorithm ChecksumAlgorithm) (string, error) {
 	files, err := dir.ListFiles()
 	if err != nil {
 		return "", err
@@ -59,7 +82,7 @@ func lazyLatestIntegralFilename(dir Dir, newSum func() Sum) (string, error) {
 		return "", &dataNotFoundError{}
 	}
 	for _, dataFile := range dataFiles {
-		if err := verifyChecksum(dir, dataFile, newSum()); err == nil {
+		if err := verifyChecksum(dir, dataFile, algorithm.NewSum()); err == nil {
 			return dataFile.name, nil
 		}
 	}
@@ -128,10 +151,11 @@ func (c *checksumReader) Close() error {
 }
 
 type checksumWriter struct {
-	writer io.WriteCloser
-	sum    Sum
-	name   string
-	dir    Dir
+	writer           io.WriteCloser
+	sum              Sum
+	name             string
+	checksumFilename string
+	dir              Dir
 }
 
 func (c *checksumWriter) Write(p []byte) (n int, err error) {
@@ -143,7 +167,7 @@ func (c *checksumWriter) Write(p []byte) (n int, err error) {
 
 func (c *checksumWriter) Close() error {
 	sum := c.sum.Marshal()
-	err := writeFile(c.dir, c.name+".fnv128a", sum)
+	err := writeFile(c.dir, c.checksumFilename, sum)
 	if err != nil {
 		return err
 	}
@@ -179,16 +203,32 @@ func writeFile(dir Dir, name string, payload []byte) error {
 	return writer.Close()
 }
 
-func newFnv128a() Sum {
-	return &hashSum{
-		Hash: fnv.New128a(),
-	}
+var Fnv128a = &hashAlgorithm{
+	newSum: func() Sum {
+		return &HashSum{
+			Hash: fnv.New128a(),
+		}
+	},
+	fileExtension: "fnv128a",
 }
 
-type hashSum struct {
+type hashAlgorithm struct {
+	newSum        func() Sum
+	fileExtension string
+}
+
+func (h *hashAlgorithm) FileExtension() string {
+	return h.fileExtension
+}
+
+func (h *hashAlgorithm) NewSum() Sum {
+	return h.newSum()
+}
+
+type HashSum struct {
 	hash.Hash
 }
 
-func (f *hashSum) Marshal() []byte {
+func (f *HashSum) Marshal() []byte {
 	return f.Hash.Sum([]byte{})
 }

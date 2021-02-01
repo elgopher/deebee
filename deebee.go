@@ -18,21 +18,21 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 		return nil, newClientError(fmt.Sprintf("database dir %s not found", dir))
 	}
 
-	s := &DB{
+	db := &DB{
 		dir: dir,
-		fileIntegrityChecker: &checksumIntegrityChecker{
-			newSum:                 newFnv128a,
-			latestIntegralFilename: lazyLatestIntegralFilename,
-		},
 	}
+	if err := ChecksumIntegrityChecker()(db); err != nil {
+		return nil, err
+	}
+
 	for _, apply := range options {
 		if apply != nil {
-			if err := apply(s); err != nil {
+			if err := apply(db); err != nil {
 				return nil, fmt.Errorf("applying option failed: %w", err)
 			}
 		}
 	}
-	return s, nil
+	return db, nil
 }
 
 type Option func(db *DB) error
@@ -41,6 +41,14 @@ type Option func(db *DB) error
 type DB struct {
 	dir                  Dir
 	fileIntegrityChecker FileIntegrityChecker
+}
+
+type FileIntegrityChecker interface {
+	LatestIntegralFilename(dir Dir) (string, error)
+	// Should return error on Close when checksum verification failed
+	DecorateReader(reader io.ReadCloser, dir Dir, name string) io.ReadCloser
+	// Should store checksum somewhere on Close.
+	DecorateWriter(writer io.WriteCloser, dir Dir, name string) io.WriteCloser
 }
 
 // Returns Writer for new version of state with given key
