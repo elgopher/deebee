@@ -17,6 +17,13 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		assert.NotNil(t, checker)
 	})
 
+	t.Run("should return error when ChecksumIntegrityChecker is set twice", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(), deebee.ChecksumIntegrityChecker())
+		assert.Error(t, err)
+		assert.Nil(t, db)
+	})
+
 	t.Run("should use custom checksum algorithm", func(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}

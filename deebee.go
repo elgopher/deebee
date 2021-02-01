@@ -21,9 +21,6 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 	db := &DB{
 		dir: dir,
 	}
-	if err := ChecksumIntegrityChecker()(db); err != nil {
-		return nil, err
-	}
 
 	for _, apply := range options {
 		if apply != nil {
@@ -32,10 +29,20 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 			}
 		}
 	}
+
+	if err := db.useDefaultFileIntegrityCheckerIfNotSet(); err != nil {
+		return nil, err
+	}
 	return db, nil
 }
 
 type Option func(db *DB) error
+
+func CustomIntegrityChecker(checker FileIntegrityChecker) Option {
+	return func(db *DB) error {
+		return db.setFileIntegrityChecker(checker)
+	}
+}
 
 // DB stores states. Each state has a key and data.
 type DB struct {
@@ -114,4 +121,19 @@ func (db *DB) Reader(key string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	return db.fileIntegrityChecker.DecorateReader(reader, stateDir, file), nil
+}
+
+func (db *DB) setFileIntegrityChecker(checker FileIntegrityChecker) error {
+	if db.fileIntegrityChecker != nil {
+		return fmt.Errorf("FileIntegrityChecker configured twice")
+	}
+	db.fileIntegrityChecker = checker
+	return nil
+}
+
+func (db *DB) useDefaultFileIntegrityCheckerIfNotSet() error {
+	if db.fileIntegrityChecker != nil {
+		return nil
+	}
+	return ChecksumIntegrityChecker()(db)
 }
