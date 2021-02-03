@@ -38,7 +38,7 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 
 type Option func(db *DB) error
 
-func CustomIntegrityChecker(checker FileIntegrityChecker) Option {
+func IntegrityChecker(checker FileIntegrityChecker) Option {
 	return func(db *DB) error {
 		return db.setFileIntegrityChecker(checker)
 	}

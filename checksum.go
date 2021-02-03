@@ -11,7 +11,7 @@ import (
 
 func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option {
 	return func(db *DB) error {
-		checker := &checksumIntegrityChecker{
+		checker := &ChecksumFileIntegrityChecker{
 			algorithm:              Fnv128a,
 			latestIntegralFilename: lazyLatestIntegralFilename,
 		}
@@ -20,7 +20,6 @@ func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option 
 				return fmt.Errorf("error applying ChecksumIntegrityChecker option: %w", err)
 			}
 		}
-
 		if err := db.setFileIntegrityChecker(checker); err != nil {
 			return err
 		}
@@ -28,10 +27,10 @@ func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option 
 	}
 }
 
-type ChecksumIntegrityCheckerOption func(*checksumIntegrityChecker) error
+type ChecksumIntegrityCheckerOption func(*ChecksumFileIntegrityChecker) error
 
 func Algorithm(algorithm ChecksumAlgorithm) ChecksumIntegrityCheckerOption {
-	return func(checker *checksumIntegrityChecker) error {
+	return func(checker *ChecksumFileIntegrityChecker) error {
 		checker.algorithm = algorithm
 		return nil
 	}
@@ -47,16 +46,16 @@ type Sum interface {
 	Marshal() []byte
 }
 
-type checksumIntegrityChecker struct {
+type ChecksumFileIntegrityChecker struct {
 	algorithm              ChecksumAlgorithm
 	latestIntegralFilename func(dir Dir, algorithm ChecksumAlgorithm) (string, error)
 }
 
-func (c *checksumIntegrityChecker) LatestIntegralFilename(dir Dir) (string, error) {
+func (c *ChecksumFileIntegrityChecker) LatestIntegralFilename(dir Dir) (string, error) {
 	return c.latestIntegralFilename(dir, c.algorithm)
 }
 
-func (c *checksumIntegrityChecker) DecorateReader(reader io.ReadCloser, dir Dir, name string) io.ReadCloser {
+func (c *ChecksumFileIntegrityChecker) DecorateReader(reader io.ReadCloser, dir Dir, name string) io.ReadCloser {
 	return &checksumReader{
 		reader: reader,
 		sum:    c.algorithm.NewSum(),
@@ -65,7 +64,7 @@ func (c *checksumIntegrityChecker) DecorateReader(reader io.ReadCloser, dir Dir,
 	}
 }
 
-func (c *checksumIntegrityChecker) DecorateWriter(writer io.WriteCloser, dir Dir, name string) io.WriteCloser {
+func (c *ChecksumFileIntegrityChecker) DecorateWriter(writer io.WriteCloser, dir Dir, name string) io.WriteCloser {
 	return &checksumWriter{
 		writer:           writer,
 		sum:              c.algorithm.NewSum(),
