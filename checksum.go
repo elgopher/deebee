@@ -64,10 +64,11 @@ func (c *ChecksumFileIntegrityChecker) LatestIntegralFilename(dir Dir) (string, 
 
 func (c *ChecksumFileIntegrityChecker) DecorateReader(reader io.ReadCloser, dir Dir, name string) io.ReadCloser {
 	return &checksumReader{
-		reader: reader,
-		sum:    c.algorithm.NewSum(),
-		name:   name,
-		dir:    dir,
+		reader:           reader,
+		sum:              c.algorithm.NewSum(),
+		name:             name,
+		dir:              dir,
+		checksumFilename: name + "." + c.algorithm.Name(),
 	}
 }
 
@@ -91,23 +92,24 @@ func lazyLatestIntegralFilename(dir Dir, algorithm ChecksumAlgorithm) (string, e
 		return "", &dataNotFoundError{}
 	}
 	for _, dataFile := range dataFiles {
-		if err := verifyChecksum(dir, dataFile, algorithm.NewSum()); err == nil {
+		if err := verifyChecksum(dir, dataFile, algorithm); err == nil {
 			return dataFile.name, nil
 		}
 	}
 	return "", &dataNotFoundError{}
 }
 
-func verifyChecksum(dir Dir, file filename, sum Sum) error {
+func verifyChecksum(dir Dir, file filename, algorithm ChecksumAlgorithm) error {
 	fileReader, err := dir.FileReader(file.name)
 	if err != nil {
 		return err
 	}
 	reader := &checksumReader{
-		reader: fileReader,
-		sum:    sum,
-		name:   file.name,
-		dir:    dir,
+		reader:           fileReader,
+		sum:              algorithm.NewSum(),
+		name:             file.name,
+		dir:              dir,
+		checksumFilename: file.name + "." + algorithm.Name(),
 	}
 	if err := readAll(reader); err != nil {
 		_ = reader.Close()
@@ -130,10 +132,11 @@ func readAll(reader io.ReadCloser) error {
 }
 
 type checksumReader struct {
-	reader io.ReadCloser
-	sum    Sum
-	name   string
-	dir    Dir
+	reader           io.ReadCloser
+	sum              Sum
+	name             string
+	dir              Dir
+	checksumFilename string
 }
 
 func (c *checksumReader) Read(p []byte) (int, error) {
@@ -149,7 +152,7 @@ func (c *checksumReader) Read(p []byte) (int, error) {
 
 func (c *checksumReader) Close() error {
 	sumBytes := c.sum.Marshal()
-	expectedSum, err := readFile(c.dir, c.name+".fnv128a")
+	expectedSum, err := readFile(c.dir, c.checksumFilename)
 	if err != nil {
 		return err
 	}
@@ -212,7 +215,16 @@ func writeFile(dir Dir, name string, payload []byte) error {
 	return writer.Close()
 }
 
-var Fnv128a = &hashAlgorithm{
+var Fnv128 = &algorithm{
+	newSum: func() Sum {
+		return &HashSum{
+			Hash: fnv.New128(),
+		}
+	},
+	fileExtension: "fnv128",
+}
+
+var Fnv128a = &algorithm{
 	newSum: func() Sum {
 		return &HashSum{
 			Hash: fnv.New128a(),
@@ -221,16 +233,16 @@ var Fnv128a = &hashAlgorithm{
 	fileExtension: "fnv128a",
 }
 
-type hashAlgorithm struct {
+type algorithm struct {
 	newSum        func() Sum
 	fileExtension string
 }
 
-func (h *hashAlgorithm) Name() string {
+func (h *algorithm) Name() string {
 	return h.fileExtension
 }
 
-func (h *hashAlgorithm) NewSum() Sum {
+func (h *algorithm) NewSum() Sum {
 	return h.newSum()
 }
 

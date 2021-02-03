@@ -59,7 +59,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		}
 	})
 
-	t.Run("should use custom checksum algorithm", func(t *testing.T) {
+	t.Run("should write checksum to a file with an extension having algorithm name", func(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
@@ -71,6 +71,20 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		files := filterFilesWithExtension(dir.FakeDir("state").Files(), "fixed")
 		require.NotEmpty(t, files)
 		assert.Equal(t, expectedSum, files[0].Data())
+	})
+
+	t.Run("should use checksum algorithm", func(t *testing.T) {
+		expectedSum := []byte{1, 2, 3, 4}
+		algorithm := &fixedAlgorithm{sum: expectedSum}
+		dir := fake.ExistingDir()
+		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
+		require.NoError(t, err)
+		expectedData := []byte("data")
+		// when
+		writeData(t, db, "state", expectedData)
+		actualData := readData(t, db, "state")
+		// then
+		assert.Equal(t, expectedData, actualData)
 	})
 }
 
@@ -126,6 +140,10 @@ func TestHashSum_Marshal(t *testing.T) {
 			algorithm   deebee.ChecksumAlgorithm
 			expectedSum string
 		}{
+			"fnv128": {
+				algorithm:   deebee.Fnv128,
+				expectedSum: "66ab729108757277b806e89c746322b5",
+			},
 			"fnv128a": {
 				algorithm:   deebee.Fnv128a,
 				expectedSum: "695b598c64757277b806e9704d5d6a5d",
@@ -154,6 +172,10 @@ func TestHashSum_Marshal(t *testing.T) {
 			algorithm   deebee.ChecksumAlgorithm
 			expectedSum string
 		}{
+			"fnv128": {
+				algorithm:   deebee.Fnv128,
+				expectedSum: "66ab729108757277b806e89c746322b5",
+			},
 			"fnv128a": {
 				algorithm:   deebee.Fnv128a,
 				expectedSum: "695b598c64757277b806e9704d5d6a5d",
