@@ -2,6 +2,8 @@ package deebee
 
 import (
 	"bytes"
+	"crypto/md5"
+	"crypto/sha512"
 	"fmt"
 	"hash"
 	"hash/fnv"
@@ -13,7 +15,7 @@ import (
 func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option {
 	return func(db *DB) error {
 		checker := &ChecksumFileIntegrityChecker{
-			algorithm:              Fnv128a,
+			algorithm:              FNV128a,
 			latestIntegralFilename: lazyLatestIntegralFilename,
 		}
 		for _, apply := range options {
@@ -215,31 +217,67 @@ func writeFile(dir Dir, name string, payload []byte) error {
 	return writer.Close()
 }
 
-var Fnv128 = &algorithm{
+var SHA512 = &algorithm{
+	newSum: func() Sum {
+		return &HashSum{
+			Hash: sha512.New(),
+		}
+	},
+	name: "sha512",
+}
+
+var MD5 = &algorithm{
+	newSum: func() Sum {
+		return &HashSum{
+			Hash: md5.New(),
+		}
+	},
+	name: "md5",
+}
+
+var FNV32 = &algorithm{
+	newSum: func() Sum {
+		return &HashSum{
+			Hash: fnv.New32(),
+		}
+	},
+	name: "fnv32",
+}
+
+var FNV32a = &algorithm{
+	newSum: func() Sum {
+		return &HashSum{
+			Hash: fnv.New32a(),
+		}
+	},
+	name: "fnv32a",
+}
+
+var FNV128 = &algorithm{
 	newSum: func() Sum {
 		return &HashSum{
 			Hash: fnv.New128(),
 		}
 	},
-	fileExtension: "fnv128",
+	name: "fnv128",
 }
 
-var Fnv128a = &algorithm{
+var FNV128a = &algorithm{
 	newSum: func() Sum {
 		return &HashSum{
 			Hash: fnv.New128a(),
 		}
 	},
-	fileExtension: "fnv128a",
+	name: "fnv128a",
 }
 
 type algorithm struct {
-	newSum        func() Sum
-	fileExtension string
+	newSum func() Sum
+	name   string
 }
 
 func (h *algorithm) Name() string {
-	return h.fileExtension
+	return h.name
 }
 
 func (h *algorithm) NewSum() Sum {

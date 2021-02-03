@@ -135,26 +135,42 @@ func (c *fixedSum) Marshal() []byte {
 }
 
 func TestHashSum_Marshal(t *testing.T) {
-	t.Run("should marshal sum", func(t *testing.T) {
-		tests := map[string]struct {
-			algorithm   deebee.ChecksumAlgorithm
-			expectedSum string
-		}{
-			"fnv128": {
-				algorithm:   deebee.Fnv128,
-				expectedSum: "66ab729108757277b806e89c746322b5",
-			},
-			"fnv128a": {
-				algorithm:   deebee.Fnv128a,
-				expectedSum: "695b598c64757277b806e9704d5d6a5d",
-			},
-			"fixed": {
-				algorithm:   &fixedAlgorithm{sum: []byte{1, 2, 3, 4}},
-				expectedSum: "01020304",
-			},
-		}
-		for name, test := range tests {
+	tests := map[string]struct {
+		algorithm   deebee.ChecksumAlgorithm
+		expectedSum string
+	}{
+		"sha512": {
+			algorithm:   deebee.SHA512,
+			expectedSum: "77c7ce9a5d86bb386d443bb96390faa120633158699c8844c30b13ab0bf92760b7e4416aea397db91b4ac0e5dd56b8ef7e4b066162ab1fdc088319ce6defc876",
+		},
+		"md5": {
+			algorithm:   deebee.MD5,
+			expectedSum: "8d777f385d3dfec8815d20f7496026dc",
+		},
+		"fnv32": {
+			algorithm:   deebee.FNV32,
+			expectedSum: "74cb23bd",
+		},
+		"fnv32a": {
+			algorithm:   deebee.FNV32a,
+			expectedSum: "d872e2a5",
+		},
+		"fnv128": {
+			algorithm:   deebee.FNV128,
+			expectedSum: "66ab729108757277b806e89c746322b5",
+		},
+		"fnv128a": {
+			algorithm:   deebee.FNV128a,
+			expectedSum: "695b598c64757277b806e9704d5d6a5d",
+		},
+		"fixed": {
+			algorithm:   &fixedAlgorithm{sum: []byte{1, 2, 3, 4}},
+			expectedSum: "01020304",
+		},
+	}
 
+	t.Run("should marshal sum", func(t *testing.T) {
+		for name, test := range tests {
 			t.Run(name, func(t *testing.T) {
 				sum := test.algorithm.NewSum()
 				_, err := sum.Write([]byte("data"))
@@ -168,21 +184,7 @@ func TestHashSum_Marshal(t *testing.T) {
 	})
 
 	t.Run("should marshal sum after two writes", func(t *testing.T) {
-		tests := map[string]struct {
-			algorithm   deebee.ChecksumAlgorithm
-			expectedSum string
-		}{
-			"fnv128": {
-				algorithm:   deebee.Fnv128,
-				expectedSum: "66ab729108757277b806e89c746322b5",
-			},
-			"fnv128a": {
-				algorithm:   deebee.Fnv128a,
-				expectedSum: "695b598c64757277b806e9704d5d6a5d",
-			},
-		}
 		for name, test := range tests {
-
 			t.Run(name, func(t *testing.T) {
 				sum := test.algorithm.NewSum()
 				_, err := sum.Write([]byte("da"))
