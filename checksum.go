@@ -7,6 +7,7 @@ import (
 	"hash/fnv"
 	"io"
 	"io/ioutil"
+	"regexp"
 )
 
 func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option {
@@ -29,8 +30,13 @@ func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option 
 
 type ChecksumIntegrityCheckerOption func(*ChecksumFileIntegrityChecker) error
 
+var algorithmNameRegex = regexp.MustCompile("^[a-z0-9]+$")
+
 func Algorithm(algorithm ChecksumAlgorithm) ChecksumIntegrityCheckerOption {
 	return func(checker *ChecksumFileIntegrityChecker) error {
+		if !algorithmNameRegex.MatchString(algorithm.Name()) {
+			return fmt.Errorf("invalid algorithm name: %s", algorithm.Name())
+		}
 		checker.algorithm = algorithm
 		return nil
 	}
@@ -38,7 +44,8 @@ func Algorithm(algorithm ChecksumAlgorithm) ChecksumIntegrityCheckerOption {
 
 type ChecksumAlgorithm interface {
 	NewSum() Sum
-	FileExtension() string
+	// Name must be digits and/or lower-case alphabetical characters
+	Name() string
 }
 
 type Sum interface {
@@ -69,7 +76,7 @@ func (c *ChecksumFileIntegrityChecker) DecorateWriter(writer io.WriteCloser, dir
 		writer:           writer,
 		sum:              c.algorithm.NewSum(),
 		name:             name,
-		checksumFilename: name + "." + c.algorithm.FileExtension(),
+		checksumFilename: name + "." + c.algorithm.Name(),
 		dir:              dir,
 	}
 }
@@ -219,7 +226,7 @@ type hashAlgorithm struct {
 	fileExtension string
 }
 
-func (h *hashAlgorithm) FileExtension() string {
+func (h *hashAlgorithm) Name() string {
 	return h.fileExtension
 }
 

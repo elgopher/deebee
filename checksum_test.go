@@ -35,6 +35,30 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		assert.Nil(t, db)
 	})
 
+	t.Run("should return error error when checksum algorithm has invalid name", func(t *testing.T) {
+		names := []string{"", ".", "-", " ", "A", "Z", ".7z", "a ", " 6"}
+		for _, name := range names {
+			t.Run(name, func(t *testing.T) {
+				algorithm := invalidNameAlgorithm{name: name}
+				db, err := deebee.Open(fake.ExistingDir(), deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
+				assert.Error(t, err)
+				assert.Nil(t, db)
+			})
+		}
+	})
+
+	t.Run("should accept algorithm with valid name", func(t *testing.T) {
+		names := []string{"a", "z", "0", "9", "2b", "fnv128a"}
+		for _, name := range names {
+			t.Run(name, func(t *testing.T) {
+				algorithm := invalidNameAlgorithm{name: name}
+				db, err := deebee.Open(fake.ExistingDir(), deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
+				require.NoError(t, err)
+				assert.NotNil(t, db)
+			})
+		}
+	})
+
 	t.Run("should use custom checksum algorithm", func(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
@@ -60,11 +84,23 @@ func filterFilesWithExtension(files []*fake.File, extension string) []*fake.File
 	return filtered
 }
 
+type invalidNameAlgorithm struct {
+	name string
+}
+
+func (i invalidNameAlgorithm) NewSum() deebee.Sum {
+	return nil
+}
+
+func (i invalidNameAlgorithm) Name() string {
+	return i.name
+}
+
 type fixedAlgorithm struct {
 	sum []byte
 }
 
-func (c fixedAlgorithm) FileExtension() string {
+func (c fixedAlgorithm) Name() string {
 	return "fixed"
 }
 
