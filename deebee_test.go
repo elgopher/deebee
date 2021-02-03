@@ -262,10 +262,10 @@ func TestReadAfterWrite(t *testing.T) {
 	})
 }
 
-func TestFileIntegrityChecker(t *testing.T) {
+func TestIntegrityChecker(t *testing.T) {
 	t.Run("should use custom FileIntegrityChecker", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir, deebee.CustomIntegrityChecker(&nullIntegrityChecker{}))
+		db, err := deebee.Open(dir, deebee.IntegrityChecker(&nullIntegrityChecker{}))
 		require.NoError(t, err)
 		notExpected := []byte("data")
 		writeData(t, db, "key", notExpected)

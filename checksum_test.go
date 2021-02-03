@@ -1,6 +1,7 @@
 package deebee_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -20,6 +21,16 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 	t.Run("should return error when ChecksumIntegrityChecker is set twice", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(), deebee.ChecksumIntegrityChecker())
+		assert.Error(t, err)
+		assert.Nil(t, db)
+	})
+
+	t.Run("should return error when option returned error", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		optionReturningError := func(checker *deebee.ChecksumFileIntegrityChecker) error {
+			return errors.New("failed")
+		}
+		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(optionReturningError))
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
