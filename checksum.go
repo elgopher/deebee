@@ -219,7 +219,7 @@ func writeFile(dir Dir, name string, payload []byte) error {
 
 var SHA512 = &algorithm{
 	newSum: func() Sum {
-		return &HashSum{
+		return &hashSum{
 			Hash: sha512.New(),
 		}
 	},
@@ -228,7 +228,7 @@ var SHA512 = &algorithm{
 
 var MD5 = &algorithm{
 	newSum: func() Sum {
-		return &HashSum{
+		return &hashSum{
 			Hash: md5.New(),
 		}
 	},
@@ -237,7 +237,7 @@ var MD5 = &algorithm{
 
 var FNV32 = &algorithm{
 	newSum: func() Sum {
-		return &HashSum{
+		return &hashSum{
 			Hash: fnv.New32(),
 		}
 	},
@@ -246,7 +246,7 @@ var FNV32 = &algorithm{
 
 var FNV32a = &algorithm{
 	newSum: func() Sum {
-		return &HashSum{
+		return &hashSum{
 			Hash: fnv.New32a(),
 		}
 	},
@@ -255,7 +255,7 @@ var FNV32a = &algorithm{
 
 var FNV128 = &algorithm{
 	newSum: func() Sum {
-		return &HashSum{
+		return &hashSum{
 			Hash: fnv.New128(),
 		}
 	},
@@ -264,7 +264,7 @@ var FNV128 = &algorithm{
 
 var FNV128a = &algorithm{
 	newSum: func() Sum {
-		return &HashSum{
+		return &hashSum{
 			Hash: fnv.New128a(),
 		}
 	},
@@ -284,10 +284,10 @@ func (h *algorithm) NewSum() Sum {
 	return h.newSum()
 }
 
-type HashSum struct {
+type hashSum struct {
 	hash.Hash
 }
 
-func (f *HashSum) Marshal() []byte {
+func (f *hashSum) Marshal() []byte {
 	return f.Hash.Sum([]byte{})
 }
