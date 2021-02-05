@@ -14,10 +14,14 @@ func BenchmarkChecksumReader_Read(b *testing.B) {
 	const size = 1024 * 1024 * 100
 
 	tests := map[string]deebee.ChecksumAlgorithm{
+		"crc32":   deebee.CRC32,
+		"crc64":   deebee.CRC64,
 		"sha512":  deebee.SHA512,
 		"md5":     deebee.MD5,
 		"fnv32":   deebee.FNV32,
 		"fnv32a":  deebee.FNV32a,
+		"fnv64":   deebee.FNV64,
+		"fnv64a":  deebee.FNV64a,
 		"fnv128":  deebee.FNV128,
 		"fnv128a": deebee.FNV128a,
 	}

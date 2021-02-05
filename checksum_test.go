@@ -139,6 +139,14 @@ func TestHashSum_Marshal(t *testing.T) {
 		algorithm   deebee.ChecksumAlgorithm
 		expectedSum string
 	}{
+		"crc32": {
+			algorithm:   deebee.CRC32,
+			expectedSum: "adf3f363",
+		},
+		"crc64": {
+			algorithm:   deebee.CRC64,
+			expectedSum: "3408641350000000",
+		},
 		"sha512": {
 			algorithm:   deebee.SHA512,
 			expectedSum: "77c7ce9a5d86bb386d443bb96390faa120633158699c8844c30b13ab0bf92760b7e4416aea397db91b4ac0e5dd56b8ef7e4b066162ab1fdc088319ce6defc876",
@@ -154,6 +162,14 @@ func TestHashSum_Marshal(t *testing.T) {
 		"fnv32a": {
 			algorithm:   deebee.FNV32a,
 			expectedSum: "d872e2a5",
+		},
+		"fnv64": {
+			algorithm:   deebee.FNV64,
+			expectedSum: "14dfb87eecce7a1d",
+		},
+		"fnv64a": {
+			algorithm:   deebee.FNV64a,
+			expectedSum: "855b556730a34a05",
 		},
 		"fnv128": {
 			algorithm:   deebee.FNV128,
