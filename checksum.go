@@ -6,6 +6,8 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"hash"
+	"hash/crc32"
+	"hash/crc64"
 	"hash/fnv"
 	"io"
 	"io/ioutil"
@@ -217,6 +219,25 @@ func writeFile(dir Dir, name string, payload []byte) error {
 	return writer.Close()
 }
 
+var CRC64 = &algorithm{
+	newSum: func() Sum {
+		table := crc64.MakeTable(crc64.ISO)
+		return &hashSum{
+			Hash: crc64.New(table),
+		}
+	},
+	name: "crc64",
+}
+
+var CRC32 = &algorithm{
+	newSum: func() Sum {
+		return &hashSum{
+			Hash: crc32.New(crc32.IEEETable),
+		}
+	},
+	name: "crc32",
+}
+
 var SHA512 = &algorithm{
 	newSum: func() Sum {
 		return &hashSum{
@@ -251,6 +272,24 @@ var FNV32a = &algorithm{
 		}
 	},
 	name: "fnv32a",
+}
+
+var FNV64 = &algorithm{
+	newSum: func() Sum {
+		return &hashSum{
+			Hash: fnv.New64(),
+		}
+	},
+	name: "fnv64",
+}
+
+var FNV64a = &algorithm{
+	newSum: func() Sum {
+		return &hashSum{
+			Hash: fnv.New64a(),
+		}
+	},
+	name: "fnv64a",
 }
 
 var FNV128 = &algorithm{
