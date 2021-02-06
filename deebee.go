@@ -143,7 +143,16 @@ func (db *DB) Close() error {
 
 func (db *DB) writeChecksum(name string) WriteChecksum {
 	return func(algorithm string, sum []byte) error {
-		return writeFile(db.dir, name+"."+algorithm, sum)
+		writer, err := db.dir.FileWriter(name)
+		if err != nil {
+			return err
+		}
+		_, err = writer.Write(sum)
+		if err != nil {
+			_ = writer.Close()
+			return err
+		}
+		return writer.Close()
 	}
 }
 
