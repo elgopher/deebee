@@ -65,7 +65,10 @@ func (f filenames) youngestFilename() (filename, bool) {
 	return youngest, true
 }
 
-func sortByVersionDescending(f filenames) filenames {
+func sortByVersionDescending(f filenames) {
 	sort.Sort(f)
-	return f
+}
+
+func sortByVersionAscending(f filenames) {
+	sort.Sort(sort.Reverse(f))
 }
