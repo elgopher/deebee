@@ -232,7 +232,7 @@ func TestReadAfterWrite(t *testing.T) {
 }
 
 func TestIntegrityChecker(t *testing.T) {
-	t.Run("should use custom FileIntegrityChecker", func(t *testing.T) {
+	t.Run("should use custom DataIntegrityChecker", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		db, err := deebee.Open(dir, deebee.IntegrityChecker(&nullIntegrityChecker{}))
 		require.NoError(t, err)
@@ -249,20 +249,11 @@ func TestIntegrityChecker(t *testing.T) {
 //  Does not check integrity at all
 type nullIntegrityChecker struct{}
 
-// Returns random file
-func (c *nullIntegrityChecker) LatestIntegralFilename(dir deebee.Dir) (string, error) {
-	files, err := dir.ListFiles()
-	if err != nil {
-		return "", err
-	}
-	return files[0], nil
-}
-
-func (c *nullIntegrityChecker) DecorateReader(reader io.ReadCloser, dir deebee.Dir, name string) io.ReadCloser {
+func (c *nullIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum deebee.ReadChecksum) io.ReadCloser {
 	return reader
 }
 
-func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, dir deebee.Dir, name string) io.WriteCloser {
+func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum deebee.WriteChecksum) io.WriteCloser {
 	return writer
 }
 
