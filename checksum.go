@@ -16,7 +16,7 @@ import (
 func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option {
 	return func(db *DB) error {
 		checker := &ChecksumDataIntegrityChecker{
-			algorithm: FNV128a,
+			algorithm: CRC32,
 		}
 		for _, apply := range options {
 			if err := apply(checker); err != nil {
