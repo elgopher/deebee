@@ -69,6 +69,10 @@ func TestOsDir_ListFiles(t *testing.T) {
 	test.TestDir_ListFiles(t, dirs)
 }
 
+func TestOsDir_DeleteFile(t *testing.T) {
+	test.TestDir_DeleteFile(t, dirs)
+}
+
 func createTempDir(t *testing.T) string {
 	dir, err := ioutil.TempDir("", "test")
 	require.NoError(t, err)

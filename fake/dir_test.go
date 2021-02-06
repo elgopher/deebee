@@ -188,3 +188,7 @@ func TestDir_FakeDir(t *testing.T) {
 		assert.NotNil(t, fakeDir)
 	})
 }
+
+func TestDir_DeleteFile(t *testing.T) {
+	test.TestDir_DeleteFile(t, dirs)
+}

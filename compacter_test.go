@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jacekolszak/deebee"
+	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -112,7 +113,7 @@ func TestState_Versions(t *testing.T) {
 		states, err := state.Versions()
 		require.NoError(t, err)
 		require.Len(t, states, 2)
-		assert.True(t, states[0].Revision != states[1].Revision, "revisions are not different")
+		assert.True(t, states[0].Revision() != states[1].Revision(), "revisions are not different")
 	})
 
 	t.Run("should return sorted states by revision", func(t *testing.T) {
@@ -130,13 +131,75 @@ func TestState_Versions(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, states, revisions)
 		for i := 0; i < revisions-1; i++ {
-			assert.True(t, states[i].Revision < states[i+1].Revision, "revisions are not sorted: states[%d].Revision < states[%d].Revision", i, i+1)
+			assert.True(t, states[i].Revision() < states[i+1].Revision(), "revisions are not sorted: states[%d].Revision < states[%d].Revision", i, i+1)
 		}
 	})
 }
 
+func TestState_Remove(t *testing.T) {
+	t.Run("should return empty states when last remaining version is removed", func(t *testing.T) {
+		var state deebee.State
+		compacter := func(ctx context.Context, s deebee.State) {
+			state = s
+		}
+		db := openDbWithCompacter(t, compacter)
+		writeData(t, db, []byte("data"))
+		states, err := state.Versions()
+		require.NoError(t, err)
+		// when
+		err = states[0].Remove()
+		// then
+		require.NoError(t, err)
+		states, err = state.Versions()
+		require.NoError(t, err)
+		assert.Empty(t, states)
+	})
+
+	t.Run("should remove one state's version when two versions are available", func(t *testing.T) {
+		var state deebee.State
+		compacter := func(ctx context.Context, s deebee.State) {
+			state = s
+		}
+		db := openDbWithCompacter(t, compacter)
+		writeData(t, db, []byte("data1"))
+		writeData(t, db, []byte("data2"))
+		states, err := state.Versions()
+		require.NoError(t, err)
+		removedState := states[0]
+		// when
+		err = removedState.Remove()
+		// then
+		require.NoError(t, err)
+		states, err = state.Versions()
+		require.NoError(t, err)
+		assert.Len(t, states, 1)
+		assert.NotEqual(t, removedState.Revision(), states[0].Revision(), "wrong revision removed")
+	})
+
+	t.Run("should return error when dir.DeleteFile is failing", func(t *testing.T) {
+		var state deebee.State
+		compacter := func(ctx context.Context, s deebee.State) {
+			state = s
+		}
+		dir := failing.DeleteFile(fake.ExistingDir())
+		db := openDbWithCompacterAndDir(t, compacter, dir)
+
+		writeData(t, db, []byte("data1"))
+		states, err := state.Versions()
+		require.NoError(t, err)
+		// when
+		err = states[0].Remove()
+		// then
+		assert.Error(t, err)
+	})
+}
+
 func openDbWithCompacter(t *testing.T, compacter deebee.CompactState) *deebee.DB {
-	db, err := deebee.Open(fake.ExistingDir(), deebee.Compacter(compacter))
+	return openDbWithCompacterAndDir(t, compacter, fake.ExistingDir())
+}
+
+func openDbWithCompacterAndDir(t *testing.T, compacter deebee.CompactState, dir deebee.Dir) *deebee.DB {
+	db, err := deebee.Open(dir, deebee.Compacter(compacter))
 	require.NoError(t, err)
 	assert.NotNil(t, db)
 	return db

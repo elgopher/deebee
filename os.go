@@ -62,3 +62,7 @@ func (o OsDir) ListFiles() ([]string, error) {
 	}
 	return files, nil
 }
+
+func (o OsDir) DeleteFile(name string) error {
+	return os.Remove(o.path(name))
+}

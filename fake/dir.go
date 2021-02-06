@@ -135,6 +135,15 @@ func (f *dir) ListFiles() ([]string, error) {
 	return files, nil
 }
 
+func (f *dir) DeleteFile(name string) error {
+	_, found := f.filesByName[name]
+	if !found {
+		return fmt.Errorf("file %s does not exist", name)
+	}
+	delete(f.filesByName, name)
+	return nil
+}
+
 type File struct {
 	data        bytes.Buffer
 	syncedBytes int
