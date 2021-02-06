@@ -147,6 +147,19 @@ func (db *DB) writeChecksum(name string) WriteChecksum {
 	}
 }
 
+func writeFile(dir Dir, name string, payload []byte) error {
+	writer, err := dir.FileWriter(name)
+	if err != nil {
+		return err
+	}
+	_, err = writer.Write(payload)
+	if err != nil {
+		_ = writer.Close()
+		return err
+	}
+	return writer.Close()
+}
+
 func (db *DB) readChecksum(name string) ReadChecksum {
 	return func(algorithm string) ([]byte, error) {
 		reader, err := db.dir.FileReader(name + "." + algorithm)
