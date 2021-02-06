@@ -84,7 +84,7 @@ func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	filename, exists := filterDatafiles(files).youngestFilename()
+	filename, exists := filterDataFiles(files).youngestFilename()
 	if !exists {
 		return "0", nil
 	}

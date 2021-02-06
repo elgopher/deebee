@@ -18,6 +18,7 @@ type Dir interface {
 	Exists() (bool, error)
 	// ListFiles list files excluding directories
 	ListFiles() ([]string, error)
+	DeleteFile(name string) error
 }
 
 type FileWriter interface {

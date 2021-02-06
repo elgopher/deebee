@@ -63,6 +63,17 @@ func ListFiles(decoratedDir deebee.Dir) deebee.Dir {
 	return dir
 }
 
+func DeleteFile(decoratedDir deebee.Dir) deebee.Dir {
+	dir := decorate(decoratedDir)
+	dir.deleteFile = func(name string) error {
+		return errors.New("deleteFile failed")
+	}
+	dir.dir = func(name string) deebee.Dir {
+		return ListFiles(decoratedDir.Dir(name))
+	}
+	return dir
+}
+
 func decorate(dir deebee.Dir) *failingDir {
 	return &failingDir{
 		fileReader: dir.FileReader,
@@ -70,6 +81,7 @@ func decorate(dir deebee.Dir) *failingDir {
 		mkdir:      dir.Mkdir,
 		exists:     dir.Exists,
 		listFiles:  dir.ListFiles,
+		deleteFile: dir.DeleteFile,
 	}
 }
 
@@ -80,6 +92,7 @@ type failingDir struct {
 	dir        func(name string) deebee.Dir
 	exists     func() (bool, error)
 	listFiles  func() ([]string, error)
+	deleteFile func(name string) error
 }
 
 func (d *failingDir) FileReader(name string) (io.ReadCloser, error) {
@@ -104,4 +117,8 @@ func (d *failingDir) Exists() (bool, error) {
 
 func (d *failingDir) ListFiles() ([]string, error) {
 	return d.listFiles()
+}
+
+func (d *failingDir) DeleteFile(name string) error {
+	return d.deleteFile(name)
 }

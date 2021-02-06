@@ -20,8 +20,9 @@ type State interface {
 	Versions() ([]StateVersion, error)
 }
 
-type StateVersion struct {
-	Revision int
+type StateVersion interface {
+	Revision() int
+	Remove() error
 }
 
 type state struct {
@@ -49,16 +50,32 @@ func (s *state) Versions() ([]StateVersion, error) {
 	if err != nil {
 		return nil, err
 	}
-	dataFiles := filterDatafiles(files)
+	dataFiles := filterDataFiles(files)
 	sortByVersionAscending(dataFiles)
 	var states []StateVersion
-	for _, datafile := range dataFiles {
-		version := StateVersion{
-			Revision: datafile.version,
+	for _, dataFile := range dataFiles {
+		version := &stateVersion{
+			revision: dataFile.version,
+			dataFile: dataFile,
+			dir:      s.dir,
 		}
 		states = append(states, version)
 	}
 	return states, nil
+}
+
+type stateVersion struct {
+	revision int
+	dataFile filename
+	dir      Dir
+}
+
+func (s *stateVersion) Remove() error {
+	return s.dir.DeleteFile(s.dataFile.name)
+}
+
+func (s *stateVersion) Revision() int {
+	return s.revision
 }
 
 func (s *state) notifyUpdated() {

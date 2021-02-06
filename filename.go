@@ -41,7 +41,7 @@ func (f filenames) Swap(i, j int) {
 	f[i], f[j] = f[j], f[i]
 }
 
-func filterDatafiles(files []string) filenames {
+func filterDataFiles(files []string) filenames {
 	var names []filename
 	for _, file := range files {
 		f, err := parseFilename(file)
