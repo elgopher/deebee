@@ -72,7 +72,9 @@ func TestCompacter(t *testing.T) {
 		require.NoError(t, err)
 		assertClosed(t, updates)
 	})
+}
 
+func TestState_Versions(t *testing.T) {
 	t.Run("should return empty state versions", func(t *testing.T) {
 		var state deebee.State
 		compacter := func(ctx context.Context, s deebee.State) {
@@ -131,7 +133,6 @@ func TestCompacter(t *testing.T) {
 			assert.True(t, states[i].Revision < states[i+1].Revision, "revisions are not sorted: states[%d].Revision < states[%d].Revision", i, i+1)
 		}
 	})
-
 }
 
 func openDbWithCompacter(t *testing.T, compacter deebee.CompactState) *deebee.DB {
