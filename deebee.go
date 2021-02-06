@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 )
 
 func Open(dir Dir, options ...Option) (*DB, error) {
@@ -23,6 +24,7 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 	db := &DB{
 		dir:   dir,
 		state: openState(dir),
+		now:   time.Now,
 	}
 
 	for _, apply := range options {
@@ -49,6 +51,15 @@ func IntegrityChecker(checker DataIntegrityChecker) Option {
 	}
 }
 
+func Now(now TimeNow) Option {
+	return func(db *DB) error {
+		db.now = now
+		return nil
+	}
+}
+
+type TimeNow func() time.Time
+
 // DB stores states. Each state has a key and data.
 type DB struct {
 	dir                  Dir
@@ -56,6 +67,7 @@ type DB struct {
 	compacter            CompactState
 	cancelCompacter      context.CancelFunc
 	state                *state
+	now                  TimeNow
 }
 
 type ReadChecksum func(algorithm string) ([]byte, error)
@@ -88,11 +100,12 @@ func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
 		return "", err
 	}
 	filename, exists := filterDataFiles(files).youngestFilename()
+	now := db.now()
 	if !exists {
-		return "0", nil
+		return generateFilename(0, now), nil
 	}
 	version := filename.version + 1
-	return generateFilename(version), nil
+	return generateFilename(version, now), nil
 }
 
 // Returns Reader for last updated version of the state
