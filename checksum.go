@@ -179,19 +179,6 @@ func (c *checksumWriter) Close() error {
 	return c.writer.Close()
 }
 
-func writeFile(dir Dir, name string, payload []byte) error {
-	writer, err := dir.FileWriter(name)
-	if err != nil {
-		return err
-	}
-	_, err = writer.Write(payload)
-	if err != nil {
-		_ = writer.Close()
-		return err
-	}
-	return writer.Close()
-}
-
 var CRC64 = &algorithm{
 	newSum: func() Sum {
 		table := crc64.MakeTable(crc64.ISO)
