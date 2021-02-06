@@ -2,6 +2,7 @@ package deebee
 
 import (
 	"context"
+	"time"
 )
 
 func Compacter(compacter CompactState) Option {
@@ -23,6 +24,7 @@ type State interface {
 type StateVersion interface {
 	Revision() int
 	Remove() error
+	Time() time.Time
 }
 
 type state struct {
@@ -76,6 +78,10 @@ func (s *stateVersion) Remove() error {
 
 func (s *stateVersion) Revision() int {
 	return s.revision
+}
+
+func (s *stateVersion) Time() time.Time {
+	return s.dataFile.time
 }
 
 func (s *state) notifyUpdated() {

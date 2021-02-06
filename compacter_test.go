@@ -134,6 +134,36 @@ func TestState_Versions(t *testing.T) {
 			assert.True(t, states[i].Revision() < states[i+1].Revision(), "revisions are not sorted: states[%d].Revision < states[%d].Revision", i, i+1)
 		}
 	})
+
+	t.Run("should return time of state creation", func(t *testing.T) {
+		creationTime, err := time.Parse(time.RFC3339, "1999-01-01T12:00:00Z")
+		require.NoError(t, err)
+		time2, err := time.Parse(time.RFC3339, "2077-01-01T12:00:00Z")
+		require.NoError(t, err)
+
+		var state deebee.State
+		compacter := func(ctx context.Context, s deebee.State) {
+			state = s
+		}
+		fakeTime := &fakeNow{currentTime: creationTime}
+		db := openDbWithOptions(t, deebee.Compacter(compacter), deebee.Now(fakeTime.Now))
+		writeData(t, db, []byte("data"))
+		// when
+		fakeTime.currentTime = time2
+		states, err := state.Versions()
+		// then
+		require.NoError(t, err)
+		require.Len(t, states, 1)
+		assert.Equal(t, creationTime, states[0].Time())
+	})
+}
+
+type fakeNow struct {
+	currentTime time.Time
+}
+
+func (t *fakeNow) Now() time.Time {
+	return t.currentTime
 }
 
 func TestState_Remove(t *testing.T) {
@@ -200,6 +230,13 @@ func openDbWithCompacter(t *testing.T, compacter deebee.CompactState) *deebee.DB
 
 func openDbWithCompacterAndDir(t *testing.T, compacter deebee.CompactState, dir deebee.Dir) *deebee.DB {
 	db, err := deebee.Open(dir, deebee.Compacter(compacter))
+	require.NoError(t, err)
+	assert.NotNil(t, db)
+	return db
+}
+
+func openDbWithOptions(t *testing.T, options ...deebee.Option) *deebee.DB {
+	db, err := deebee.Open(fake.ExistingDir(), options...)
 	require.NoError(t, err)
 	assert.NotNil(t, db)
 	return db

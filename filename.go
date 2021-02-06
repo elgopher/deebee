@@ -1,26 +1,49 @@
 package deebee
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type filename struct {
 	name    string
 	version int
+	time    time.Time
 }
 
-func generateFilename(version int) string {
-	return fmt.Sprintf("%d", version)
+const timeFormat = time.RFC3339Nano
+
+func generateFilename(version int, now time.Time) string {
+	formattedTime := now.Format(timeFormat)
+	return fmt.Sprintf("%d-%s", version, formattedTime)
 }
 
 func parseFilename(file string) (filename, error) {
-	version, err := strconv.Atoi(file)
-	if err != nil {
-		return filename{}, err
+	if !strings.Contains(file, "-") {
+		return filename{}, errors.New("invalid format")
 	}
-	return filename{name: file, version: version}, nil
+	array := strings.SplitN(file, "-", 2)
+	versionStr, timeStr := array[0], array[1]
+
+	version, err := strconv.Atoi(versionStr)
+	if err != nil {
+		return filename{}, fmt.Errorf("parsing version failed: %w", err)
+	}
+
+	creationTime, err := time.Parse(timeFormat, timeStr)
+	if err != nil {
+		return filename{}, fmt.Errorf("parsing creation time failed: %w", err)
+	}
+
+	return filename{
+		name:    file,
+		version: version,
+		time:    creationTime,
+	}, nil
 }
 
 func (f filename) youngerThan(filename filename) bool {
