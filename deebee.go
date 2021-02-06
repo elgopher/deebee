@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 )
 
 func Open(dir Dir, options ...Option) (*DB, error) {
@@ -32,7 +33,7 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 		}
 	}
 
-	if err := db.useDefaultFileIntegrityCheckerIfNotSet(); err != nil {
+	if err := db.useDefaultDataIntegrityCheckerIfNotSet(); err != nil {
 		return nil, err
 	}
 	db.useDefaultCompacterIfNotSet()
@@ -42,27 +43,29 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 
 type Option func(db *DB) error
 
-func IntegrityChecker(checker FileIntegrityChecker) Option {
+func IntegrityChecker(checker DataIntegrityChecker) Option {
 	return func(db *DB) error {
-		return db.setFileIntegrityChecker(checker)
+		return db.setDataIntegrityChecker(checker)
 	}
 }
 
 // DB stores states. Each state has a key and data.
 type DB struct {
 	dir                  Dir
-	fileIntegrityChecker FileIntegrityChecker
+	dataIntegrityChecker DataIntegrityChecker
 	compacter            CompactState
 	cancelCompacter      context.CancelFunc
 	state                *state
 }
 
-type FileIntegrityChecker interface {
-	LatestIntegralFilename(dir Dir) (string, error)
-	// Should return error on Close when checksum verification failed
-	DecorateReader(reader io.ReadCloser, dir Dir, name string) io.ReadCloser
-	// Should store checksum somewhere on Close.
-	DecorateWriter(writer io.WriteCloser, dir Dir, name string) io.WriteCloser
+type ReadChecksum func(algorithm string) ([]byte, error)
+type WriteChecksum func(algorithm string, sum []byte) error
+
+type DataIntegrityChecker interface {
+	// Should calculate checksum and compare it with checksum read using readChecksum function on Close
+	DecorateReader(reader io.ReadCloser, name string, readChecksum ReadChecksum) io.ReadCloser
+	// Should calculate checksum and save it using writeChecksum on Close
+	DecorateWriter(writer io.WriteCloser, name string, writeChecksum WriteChecksum) io.WriteCloser
 }
 
 // Returns Writer for new version of state
@@ -76,7 +79,7 @@ func (db *DB) Writer() (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return db.fileIntegrityChecker.DecorateWriter(writer, db.dir, name), nil
+	return db.dataIntegrityChecker.DecorateWriter(writer, name, db.writeChecksum(name)), nil
 }
 
 func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
@@ -94,7 +97,7 @@ func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
 
 // Returns Reader for last updated version of the state
 func (db *DB) Reader() (io.ReadCloser, error) {
-	file, err := db.fileIntegrityChecker.LatestIntegralFilename(db.dir)
+	file, err := db.latestIntegralFilename(db.dir)
 	if err != nil {
 		return nil, err
 	}
@@ -102,19 +105,19 @@ func (db *DB) Reader() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return db.fileIntegrityChecker.DecorateReader(reader, db.dir, file), nil
+	return db.dataIntegrityChecker.DecorateReader(reader, file, db.readChecksum(file)), nil
 }
 
-func (db *DB) setFileIntegrityChecker(checker FileIntegrityChecker) error {
-	if db.fileIntegrityChecker != nil {
-		return fmt.Errorf("FileIntegrityChecker configured twice")
+func (db *DB) setDataIntegrityChecker(checker DataIntegrityChecker) error {
+	if db.dataIntegrityChecker != nil {
+		return fmt.Errorf("DataIntegrityChecker configured twice")
 	}
-	db.fileIntegrityChecker = checker
+	db.dataIntegrityChecker = checker
 	return nil
 }
 
-func (db *DB) useDefaultFileIntegrityCheckerIfNotSet() error {
-	if db.fileIntegrityChecker != nil {
+func (db *DB) useDefaultDataIntegrityCheckerIfNotSet() error {
+	if db.dataIntegrityChecker != nil {
 		return nil
 	}
 	return ChecksumIntegrityChecker()(db)
@@ -136,4 +139,20 @@ func (db *DB) Close() error {
 	db.cancelCompacter()
 	db.state.close()
 	return nil
+}
+
+func (db *DB) writeChecksum(name string) WriteChecksum {
+	return func(algorithm string, sum []byte) error {
+		return writeFile(db.dir, name+"."+algorithm, sum)
+	}
+}
+
+func (db *DB) readChecksum(name string) ReadChecksum {
+	return func(algorithm string) ([]byte, error) {
+		reader, err := db.dir.FileReader(name + "." + algorithm)
+		if err != nil {
+			return nil, err
+		}
+		return ioutil.ReadAll(reader)
+	}
 }

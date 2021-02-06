@@ -10,34 +10,32 @@ import (
 	"hash/crc64"
 	"hash/fnv"
 	"io"
-	"io/ioutil"
 	"regexp"
 )
 
 func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option {
 	return func(db *DB) error {
-		checker := &ChecksumFileIntegrityChecker{
-			algorithm:              FNV128a,
-			latestIntegralFilename: lazyLatestIntegralFilename,
+		checker := &ChecksumDataIntegrityChecker{
+			algorithm: FNV128a,
 		}
 		for _, apply := range options {
 			if err := apply(checker); err != nil {
 				return fmt.Errorf("error applying ChecksumIntegrityChecker option: %w", err)
 			}
 		}
-		if err := db.setFileIntegrityChecker(checker); err != nil {
+		if err := db.setDataIntegrityChecker(checker); err != nil {
 			return err
 		}
 		return nil
 	}
 }
 
-type ChecksumIntegrityCheckerOption func(*ChecksumFileIntegrityChecker) error
+type ChecksumIntegrityCheckerOption func(*ChecksumDataIntegrityChecker) error
 
 var algorithmNameRegex = regexp.MustCompile("^[a-z0-9]+$")
 
 func Algorithm(algorithm ChecksumAlgorithm) ChecksumIntegrityCheckerOption {
-	return func(checker *ChecksumFileIntegrityChecker) error {
+	return func(checker *ChecksumDataIntegrityChecker) error {
 		if !algorithmNameRegex.MatchString(algorithm.Name()) {
 			return fmt.Errorf("invalid algorithm name: %s", algorithm.Name())
 		}
@@ -57,36 +55,31 @@ type Sum interface {
 	Marshal() []byte
 }
 
-type ChecksumFileIntegrityChecker struct {
-	algorithm              ChecksumAlgorithm
-	latestIntegralFilename func(dir Dir, algorithm ChecksumAlgorithm) (string, error)
+type ChecksumDataIntegrityChecker struct {
+	algorithm ChecksumAlgorithm
 }
 
-func (c *ChecksumFileIntegrityChecker) LatestIntegralFilename(dir Dir) (string, error) {
-	return c.latestIntegralFilename(dir, c.algorithm)
-}
-
-func (c *ChecksumFileIntegrityChecker) DecorateReader(reader io.ReadCloser, dir Dir, name string) io.ReadCloser {
+func (c *ChecksumDataIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum ReadChecksum) io.ReadCloser {
 	return &checksumReader{
-		reader:           reader,
-		sum:              c.algorithm.NewSum(),
-		name:             name,
-		dir:              dir,
-		checksumFilename: name + "." + c.algorithm.Name(),
+		reader:       reader,
+		sum:          c.algorithm.NewSum(),
+		name:         name,
+		algorithm:    c.algorithm.Name(),
+		readChecksum: readChecksum,
 	}
 }
 
-func (c *ChecksumFileIntegrityChecker) DecorateWriter(writer io.WriteCloser, dir Dir, name string) io.WriteCloser {
+func (c *ChecksumDataIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum WriteChecksum) io.WriteCloser {
 	return &checksumWriter{
-		writer:           writer,
-		sum:              c.algorithm.NewSum(),
-		name:             name,
-		checksumFilename: name + "." + c.algorithm.Name(),
-		dir:              dir,
+		writer:        writer,
+		sum:           c.algorithm.NewSum(),
+		name:          name,
+		algorithm:     c.algorithm.Name(),
+		writeChecksum: writeChecksum,
 	}
 }
 
-func lazyLatestIntegralFilename(dir Dir, algorithm ChecksumAlgorithm) (string, error) {
+func (db *DB) latestIntegralFilename(dir Dir) (string, error) {
 	files, err := dir.ListFiles()
 	if err != nil {
 		return "", err
@@ -97,25 +90,19 @@ func lazyLatestIntegralFilename(dir Dir, algorithm ChecksumAlgorithm) (string, e
 		return "", &dataNotFoundError{}
 	}
 	for _, dataFile := range dataFiles {
-		if err := verifyChecksum(dir, dataFile, algorithm); err == nil {
+		if err := db.verifyChecksum(dir, dataFile); err == nil {
 			return dataFile.name, nil
 		}
 	}
 	return "", &dataNotFoundError{}
 }
 
-func verifyChecksum(dir Dir, file filename, algorithm ChecksumAlgorithm) error {
+func (db *DB) verifyChecksum(dir Dir, file filename) error {
 	fileReader, err := dir.FileReader(file.name)
 	if err != nil {
 		return err
 	}
-	reader := &checksumReader{
-		reader:           fileReader,
-		sum:              algorithm.NewSum(),
-		name:             file.name,
-		dir:              dir,
-		checksumFilename: file.name + "." + algorithm.Name(),
-	}
+	reader := db.dataIntegrityChecker.DecorateReader(fileReader, file.name, db.readChecksum(file.name))
 	if err := readAll(reader); err != nil {
 		_ = reader.Close()
 		return err
@@ -137,11 +124,11 @@ func readAll(reader io.ReadCloser) error {
 }
 
 type checksumReader struct {
-	reader           io.ReadCloser
-	sum              Sum
-	name             string
-	dir              Dir
-	checksumFilename string
+	reader       io.ReadCloser
+	name         string
+	sum          Sum
+	algorithm    string
+	readChecksum ReadChecksum
 }
 
 func (c *checksumReader) Read(p []byte) (int, error) {
@@ -157,7 +144,7 @@ func (c *checksumReader) Read(p []byte) (int, error) {
 
 func (c *checksumReader) Close() error {
 	sumBytes := c.sum.Marshal()
-	expectedSum, err := readFile(c.dir, c.checksumFilename)
+	expectedSum, err := c.readChecksum(c.algorithm)
 	if err != nil {
 		return err
 	}
@@ -168,11 +155,11 @@ func (c *checksumReader) Close() error {
 }
 
 type checksumWriter struct {
-	writer           io.WriteCloser
-	sum              Sum
-	name             string
-	checksumFilename string
-	dir              Dir
+	writer        io.WriteCloser
+	name          string
+	sum           Sum
+	algorithm     string
+	writeChecksum WriteChecksum
 }
 
 func (c *checksumWriter) Write(p []byte) (n int, err error) {
@@ -184,27 +171,12 @@ func (c *checksumWriter) Write(p []byte) (n int, err error) {
 
 func (c *checksumWriter) Close() error {
 	sum := c.sum.Marshal()
-	err := writeFile(c.dir, c.checksumFilename, sum)
+	err := c.writeChecksum(c.algorithm, sum)
 	if err != nil {
+		_ = c.writer.Close()
 		return err
 	}
 	return c.writer.Close()
-}
-
-func readFile(dir Dir, name string) ([]byte, error) {
-	reader, err := dir.FileReader(name)
-	if err != nil {
-		return nil, err
-	}
-	all, err := ioutil.ReadAll(reader)
-	if err != nil {
-		_ = reader.Close()
-		return nil, err
-	}
-	if err := reader.Close(); err != nil {
-		return nil, err
-	}
-	return all, nil
 }
 
 func writeFile(dir Dir, name string, payload []byte) error {

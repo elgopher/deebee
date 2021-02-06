@@ -27,7 +27,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 
 	t.Run("should return error when option returned error", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		optionReturningError := func(checker *deebee.ChecksumFileIntegrityChecker) error {
+		optionReturningError := func(checker *deebee.ChecksumDataIntegrityChecker) error {
 			return errors.New("failed")
 		}
 		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(optionReturningError))

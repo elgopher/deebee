@@ -10,7 +10,6 @@ import (
 )
 
 func BenchmarkChecksumReader_Read(b *testing.B) {
-	const key = "state"
 	const size = 1024 * 1024 * 100
 
 	tests := map[string]deebee.ChecksumAlgorithm{
@@ -28,29 +27,28 @@ func BenchmarkChecksumReader_Read(b *testing.B) {
 	for name, algorithm := range tests {
 
 		b.Run(name, func(b *testing.B) {
-			checker := &deebee.ChecksumFileIntegrityChecker{}
-			require.NoError(b, deebee.Algorithm(algorithm)(checker))
 			dir := fake.ExistingDir()
+			db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
+			require.NoError(b, err)
 			const blockSize = 8192
 			buffer := make([]byte, blockSize)
-			writeBigData(b, dir, key, size, buffer)
+			writeBigData(b, db, size, buffer)
 
 			b.ReportAllocs()
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				reader, err := dir.FileReader(key)
+				reader, err := db.Reader()
 				require.NoError(b, err)
-				decoratedReader := checker.DecorateReader(reader, dir, key)
 				// when
-				readAll(b, decoratedReader, buffer)
+				readAll(b, reader, buffer)
 			}
 		})
 	}
 }
 
-func writeBigData(b *testing.B, dir deebee.Dir, file string, fileSize int, buffer []byte) {
-	writer, err := dir.FileWriter(file)
+func writeBigData(b *testing.B, db *deebee.DB, fileSize int, buffer []byte) {
+	writer, err := db.Writer()
 	require.NoError(b, err)
 
 	for i := 0; i < len(buffer); i++ {
