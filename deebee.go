@@ -1,6 +1,7 @@
 package deebee
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +20,8 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 	}
 
 	db := &DB{
-		dir: dir,
+		dir:   dir,
+		state: openState(),
 	}
 
 	for _, apply := range options {
@@ -33,6 +35,8 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 	if err := db.useDefaultFileIntegrityCheckerIfNotSet(); err != nil {
 		return nil, err
 	}
+	db.useDefaultCompacterIfNotSet()
+	db.startCompacter()
 	return db, nil
 }
 
@@ -48,6 +52,9 @@ func IntegrityChecker(checker FileIntegrityChecker) Option {
 type DB struct {
 	dir                  Dir
 	fileIntegrityChecker FileIntegrityChecker
+	compacter            CompactState
+	cancelCompacter      context.CancelFunc
+	state                *state
 }
 
 type FileIntegrityChecker interface {
@@ -73,6 +80,8 @@ func (db *DB) Writer(key string) (io.WriteCloser, error) {
 		if err := stateDir.Mkdir(); err != nil {
 			return nil, err
 		}
+	} else {
+		defer db.state.notifyUpdated()
 	}
 	name, err := db.nextVersionFilename(stateDir)
 	if err != nil {
@@ -136,4 +145,22 @@ func (db *DB) useDefaultFileIntegrityCheckerIfNotSet() error {
 		return nil
 	}
 	return ChecksumIntegrityChecker()(db)
+}
+
+func (db *DB) useDefaultCompacterIfNotSet() {
+	if db.compacter == nil {
+		db.compacter = noCompact
+	}
+}
+
+func (db *DB) startCompacter() {
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	db.cancelCompacter = cancelFunc
+	db.compacter(ctx, db.state)
+}
+
+func (db *DB) Close() error {
+	db.cancelCompacter()
+	db.state.close()
+	return nil
 }
