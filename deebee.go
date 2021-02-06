@@ -21,7 +21,7 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 
 	db := &DB{
 		dir:   dir,
-		state: openState(),
+		state: openState(dir),
 	}
 
 	for _, apply := range options {

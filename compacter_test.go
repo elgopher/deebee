@@ -72,6 +72,66 @@ func TestCompacter(t *testing.T) {
 		require.NoError(t, err)
 		assertClosed(t, updates)
 	})
+
+	t.Run("should return empty state versions", func(t *testing.T) {
+		var state deebee.State
+		compacter := func(ctx context.Context, s deebee.State) {
+			state = s
+		}
+		openDbWithCompacter(t, compacter)
+		// when
+		versions, err := state.Versions()
+		require.NoError(t, err)
+		assert.Empty(t, versions)
+	})
+
+	t.Run("should return one state version", func(t *testing.T) {
+		var state deebee.State
+		compacter := func(ctx context.Context, s deebee.State) {
+			state = s
+		}
+		db := openDbWithCompacter(t, compacter)
+		writeData(t, db, []byte("data"))
+		// when
+		states, err := state.Versions()
+		require.NoError(t, err)
+		require.Len(t, states, 1)
+	})
+
+	t.Run("should return two state versions", func(t *testing.T) {
+		var state deebee.State
+		compacter := func(ctx context.Context, s deebee.State) {
+			state = s
+		}
+		db := openDbWithCompacter(t, compacter)
+		writeData(t, db, []byte("data"))
+		writeData(t, db, []byte("updated"))
+		// when
+		states, err := state.Versions()
+		require.NoError(t, err)
+		require.Len(t, states, 2)
+		assert.True(t, states[0].Revision != states[1].Revision, "revisions are not different")
+	})
+
+	t.Run("should return sorted states by revision", func(t *testing.T) {
+		var state deebee.State
+		compacter := func(ctx context.Context, s deebee.State) {
+			state = s
+		}
+		db := openDbWithCompacter(t, compacter)
+		const revisions = 256
+		for i := 0; i < revisions; i++ {
+			writeData(t, db, []byte("data"))
+		}
+		// when
+		states, err := state.Versions()
+		require.NoError(t, err)
+		require.Len(t, states, revisions)
+		for i := 0; i < revisions-1; i++ {
+			assert.True(t, states[i].Revision < states[i+1].Revision, "revisions are not sorted: states[%d].Revision < states[%d].Revision", i, i+1)
+		}
+	})
+
 }
 
 func openDbWithCompacter(t *testing.T, compacter deebee.CompactState) *deebee.DB {

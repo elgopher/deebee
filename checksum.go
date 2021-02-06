@@ -91,7 +91,8 @@ func lazyLatestIntegralFilename(dir Dir, algorithm ChecksumAlgorithm) (string, e
 	if err != nil {
 		return "", err
 	}
-	dataFiles := sortByVersionDescending(filterDatafiles(files))
+	dataFiles := filterDatafiles(files)
+	sortByVersionDescending(dataFiles)
 	if len(dataFiles) == 0 {
 		return "", &dataNotFoundError{}
 	}
