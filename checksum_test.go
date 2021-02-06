@@ -66,9 +66,9 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
 		require.NoError(t, err)
 		// when
-		writeData(t, db, "state", []byte("data"))
+		writeData(t, db, []byte("data"))
 		// then
-		files := filterFilesWithExtension(dir.FakeDir("state").Files(), "fixed")
+		files := filterFilesWithExtension(dir.Files(), "fixed")
 		require.NotEmpty(t, files)
 		assert.Equal(t, expectedSum, files[0].Data())
 	})
@@ -81,8 +81,8 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		require.NoError(t, err)
 		expectedData := []byte("data")
 		// when
-		writeData(t, db, "state", expectedData)
-		actualData := readData(t, db, "state")
+		writeData(t, db, expectedData)
+		actualData := readData(t, db)
 		// then
 		assert.Equal(t, expectedData, actualData)
 	})

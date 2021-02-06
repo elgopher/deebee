@@ -65,33 +65,18 @@ type FileIntegrityChecker interface {
 	DecorateWriter(writer io.WriteCloser, dir Dir, name string) io.WriteCloser
 }
 
-// Returns Writer for new version of state with given key
-func (db *DB) Writer(key string) (io.WriteCloser, error) {
-	if err := validateKey(key); err != nil {
-		return nil, err
-	}
-
-	stateDir := db.dir.Dir(key)
-	stateDirExists, err := stateDir.Exists()
+// Returns Writer for new version of state
+func (db *DB) Writer() (io.WriteCloser, error) {
+	defer db.state.notifyUpdated()
+	name, err := db.nextVersionFilename(db.dir)
 	if err != nil {
 		return nil, err
 	}
-	if !stateDirExists {
-		if err := stateDir.Mkdir(); err != nil {
-			return nil, err
-		}
-	} else {
-		defer db.state.notifyUpdated()
-	}
-	name, err := db.nextVersionFilename(stateDir)
+	writer, err := db.dir.FileWriter(name)
 	if err != nil {
 		return nil, err
 	}
-	writer, err := stateDir.FileWriter(name)
-	if err != nil {
-		return nil, err
-	}
-	return db.fileIntegrityChecker.DecorateWriter(writer, stateDir, name), nil
+	return db.fileIntegrityChecker.DecorateWriter(writer, db.dir, name), nil
 }
 
 func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
@@ -107,29 +92,17 @@ func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
 	return generateFilename(version), nil
 }
 
-// Returns Reader for state with given key
-func (db *DB) Reader(key string) (io.ReadCloser, error) {
-	if err := validateKey(key); err != nil {
-		return nil, err
-	}
-
-	stateDir := db.dir.Dir(key)
-	stateDirExists, err := stateDir.Exists()
+// Returns Reader for last updated version of the state
+func (db *DB) Reader() (io.ReadCloser, error) {
+	file, err := db.fileIntegrityChecker.LatestIntegralFilename(db.dir)
 	if err != nil {
 		return nil, err
 	}
-	if !stateDirExists {
-		return nil, &dataNotFoundError{}
-	}
-	file, err := db.fileIntegrityChecker.LatestIntegralFilename(stateDir)
+	reader, err := db.dir.FileReader(file)
 	if err != nil {
 		return nil, err
 	}
-	reader, err := stateDir.FileReader(file)
-	if err != nil {
-		return nil, err
-	}
-	return db.fileIntegrityChecker.DecorateReader(reader, stateDir, file), nil
+	return db.fileIntegrityChecker.DecorateReader(reader, db.dir, file), nil
 }
 
 func (db *DB) setFileIntegrityChecker(checker FileIntegrityChecker) error {

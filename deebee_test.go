@@ -67,26 +67,11 @@ func (e testError) Error() string {
 	return "test-error"
 }
 
-var invalidKeys = []string{"", " a", "a ", ".", "..", "/", "a/b", "\\", "a\\b"}
-
 func TestDB_Reader(t *testing.T) {
-	t.Run("should return error for invalid keys", func(t *testing.T) {
-		for _, key := range invalidKeys {
-			t.Run(key, func(t *testing.T) {
-				db := openDB(t, fake.ExistingDir())
-				// when
-				reader, err := db.Reader(key)
-				// then
-				assert.Nil(t, reader)
-				assert.True(t, deebee.IsClientError(err))
-			})
-		}
-	})
-
 	t.Run("should return error when no data was previously saved", func(t *testing.T) {
 		db := openDB(t, fake.ExistingDir())
 		// when
-		reader, err := db.Reader("state")
+		reader, err := db.Reader()
 		// then
 		assert.Nil(t, reader)
 		assert.False(t, deebee.IsClientError(err))
@@ -102,11 +87,11 @@ func TestDB_Reader(t *testing.T) {
 
 			t.Run(name, func(t *testing.T) {
 				db := openDB(t, dir)
-				if err := writeDataOrError(db, "key", []byte("data")); err != nil {
+				if err := writeDataOrError(db, []byte("data")); err != nil {
 					return
 				}
 				// when
-				reader, err := db.Reader("key")
+				reader, err := db.Reader()
 				// then
 				assert.Error(t, err)
 				assert.Nil(t, reader)
@@ -116,22 +101,8 @@ func TestDB_Reader(t *testing.T) {
 }
 
 func TestDB_Writer(t *testing.T) {
-	t.Run("should return error for invalid keys", func(t *testing.T) {
-		for _, key := range invalidKeys {
-			t.Run(key, func(t *testing.T) {
-				db := openDB(t, fake.ExistingDir())
-				// when
-				writer, err := db.Writer(key)
-				// then
-				assert.Nil(t, writer)
-				assert.True(t, deebee.IsClientError(err))
-			})
-		}
-	})
-
 	t.Run("should return error when DB is failing", func(t *testing.T) {
 		dirs := map[string]deebee.Dir{
-			"Mkdir":      failing.Mkdir(fake.ExistingDir()),
 			"FileWriter": failing.FileWriter(fake.ExistingDir()),
 		}
 		for name, dir := range dirs {
@@ -139,7 +110,7 @@ func TestDB_Writer(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				db := openDB(t, dir)
 				// when
-				writer, err := db.Writer("key")
+				writer, err := db.Writer()
 				// then
 				assert.Error(t, err)
 				assert.Nil(t, writer)
@@ -149,8 +120,6 @@ func TestDB_Writer(t *testing.T) {
 }
 
 func TestReadAfterWrite(t *testing.T) {
-	const key = "state"
-
 	t.Run("should read previously written data", func(t *testing.T) {
 		tests := map[string][]byte{
 			"empty":      {},
@@ -161,9 +130,9 @@ func TestReadAfterWrite(t *testing.T) {
 
 			t.Run(name, func(t *testing.T) {
 				db := openDB(t, fake.ExistingDir())
-				writeData(t, db, key, data)
+				writeData(t, db, data)
 				// when
-				actual := readData(t, db, key)
+				actual := readData(t, db)
 				// then
 				assert.Equal(t, data, actual)
 			})
@@ -173,10 +142,10 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("after update should read last written data", func(t *testing.T) {
 		db := openDB(t, fake.ExistingDir())
 		updatedData := "updated"
-		writeData(t, db, key, []byte("data"))
-		writeData(t, db, key, []byte(updatedData))
+		writeData(t, db, []byte("data"))
+		writeData(t, db, []byte(updatedData))
 		// when
-		actual := readData(t, db, key)
+		actual := readData(t, db)
 		// then
 		assert.Equal(t, updatedData, string(actual))
 	})
@@ -184,11 +153,11 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("after two updates should read last written data", func(t *testing.T) {
 		db := openDB(t, fake.ExistingDir())
 		updatedData := "updated"
-		writeData(t, db, key, []byte("data1"))
-		writeData(t, db, key, []byte("data2"))
-		writeData(t, db, key, []byte(updatedData))
+		writeData(t, db, []byte("data1"))
+		writeData(t, db, []byte("data2"))
+		writeData(t, db, []byte(updatedData))
 		// when
-		actual := readData(t, db, key)
+		actual := readData(t, db)
 		// then
 		assert.Equal(t, updatedData, string(actual))
 	})
@@ -196,13 +165,13 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("should update data using different db instance", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		db := openDB(t, dir)
-		writeData(t, db, key, []byte("data"))
+		writeData(t, db, []byte("data"))
 
 		anotherDb := openDB(t, dir)
 		updatedData := "updated"
-		writeData(t, anotherDb, key, []byte(updatedData))
+		writeData(t, anotherDb, []byte(updatedData))
 		// when
-		actual := readData(t, anotherDb, key)
+		actual := readData(t, anotherDb)
 		// then
 		assert.Equal(t, updatedData, string(actual))
 	})
@@ -217,14 +186,14 @@ func TestReadAfterWrite(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				dir := fake.ExistingDir()
 				db := openDB(t, dir)
-				writeData(t, db, key, []byte("new"))
+				writeData(t, db, []byte("new"))
 
 				for i := 0; i < numberOfUpdates; i++ {
-					writeData(t, db, key, []byte("update"))
+					writeData(t, db, []byte("update"))
 				}
 				// when
-				corruptAllFiles(dir, key)
-				reader, err := db.Reader(key)
+				corruptAllFiles(dir)
+				reader, err := db.Reader()
 				// then
 				require.Error(t, err)
 				assert.True(t, deebee.IsDataNotFound(err))
@@ -236,10 +205,10 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("should return error when file was integral during verification, but became corrupted during read", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		db := openDB(t, dir)
-		writeData(t, db, key, []byte("data"))
-		reader, err := db.Reader(key)
+		writeData(t, db, []byte("data"))
+		reader, err := db.Reader()
 		require.NoError(t, err)
-		corruptAllFiles(dir, key)
+		corruptAllFiles(dir)
 		_, err = ioutil.ReadAll(reader)
 		require.NoError(t, err)
 		// when
@@ -251,11 +220,11 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("should return last not corrupted data", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		db := openDB(t, dir)
-		writeData(t, db, key, []byte("old"))
-		writeData(t, db, key, []byte("new"))
+		writeData(t, db, []byte("old"))
+		writeData(t, db, []byte("new"))
 		// when
-		corruptLastAddedFile(dir, key)
-		reader, err := db.Reader(key)
+		corruptLastAddedFile(dir)
+		reader, err := db.Reader()
 		// then
 		require.NoError(t, err)
 		assert.NotNil(t, reader)
@@ -268,11 +237,11 @@ func TestIntegrityChecker(t *testing.T) {
 		db, err := deebee.Open(dir, deebee.IntegrityChecker(&nullIntegrityChecker{}))
 		require.NoError(t, err)
 		notExpected := []byte("data")
-		writeData(t, db, "key", notExpected)
+		writeData(t, db, notExpected)
 		// when
-		corruptAllFiles(dir, "key")
+		corruptAllFiles(dir)
 		// then
-		data := readData(t, db, "key")
+		data := readData(t, db)
 		assert.NotEqual(t, notExpected, data)
 	})
 }
@@ -303,8 +272,8 @@ func openDB(t *testing.T, dir deebee.Dir) *deebee.DB {
 	return db
 }
 
-func writeData(t *testing.T, db *deebee.DB, key string, data []byte) {
-	writer, err := db.Writer(key)
+func writeData(t *testing.T, db *deebee.DB, data []byte) {
+	writer, err := db.Writer()
 	require.NoError(t, err)
 	_, err = writer.Write(data)
 	require.NoError(t, err)
@@ -312,8 +281,8 @@ func writeData(t *testing.T, db *deebee.DB, key string, data []byte) {
 	require.NoError(t, err)
 }
 
-func writeDataOrError(db *deebee.DB, key string, data []byte) error {
-	writer, err := db.Writer(key)
+func writeDataOrError(db *deebee.DB, data []byte) error {
+	writer, err := db.Writer()
 	if err != nil {
 		return err
 	}
@@ -329,8 +298,8 @@ func writeDataOrError(db *deebee.DB, key string, data []byte) error {
 	return nil
 }
 
-func readData(t *testing.T, db *deebee.DB, key string) []byte {
-	reader, err := db.Reader(key)
+func readData(t *testing.T, db *deebee.DB) []byte {
+	reader, err := db.Reader()
 	require.NoError(t, err)
 	actual, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)
@@ -347,16 +316,14 @@ func makeData(size int, fillWith byte) []byte {
 	return data
 }
 
-func corruptAllFiles(dir fake.Dir, key string) {
-	stateDir := dir.FakeDir(key)
-	files := stateDir.Files()
+func corruptAllFiles(dir fake.Dir) {
+	files := dir.Files()
 	for _, file := range files {
 		file.Corrupt()
 	}
 }
 
-func corruptLastAddedFile(dir fake.Dir, key string) {
-	stateDir := dir.FakeDir(key)
-	files := stateDir.Files()
+func corruptLastAddedFile(dir fake.Dir) {
+	files := dir.Files()
 	files[len(files)-1].Corrupt()
 }

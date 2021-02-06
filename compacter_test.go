@@ -12,8 +12,6 @@ import (
 )
 
 func TestCompacter(t *testing.T) {
-	const state = "state"
-
 	t.Run("should open database with custom compacter", func(t *testing.T) {
 		compacter := func(ctx context.Context, state deebee.State) {}
 		db, err := deebee.Open(fake.ExistingDir(), deebee.Compacter(compacter))
@@ -42,9 +40,9 @@ func TestCompacter(t *testing.T) {
 			updates = state.Updates()
 		}
 		db := openDbWithCompacter(t, compacter)
-		writeData(t, db, state, []byte("new"))
+		writeData(t, db, []byte("new"))
 		// when
-		writeData(t, db, state, []byte("updated"))
+		writeData(t, db, []byte("updated"))
 		// then
 		assertUpdateReceived(t, updates)
 	})
