@@ -1,4 +1,4 @@
-package store
+package checksum
 
 import (
 	"bytes"
@@ -11,10 +11,12 @@ import (
 	"hash/fnv"
 	"io"
 	"regexp"
+
+	"github.com/jacekolszak/deebee/store"
 )
 
-func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option {
-	return func(db *DB) error {
+func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) store.Option {
+	return func(db *store.DB) error {
 		checker := &ChecksumDataIntegrityChecker{
 			algorithm: CRC32,
 		}
@@ -23,10 +25,7 @@ func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) Option 
 				return fmt.Errorf("error applying ChecksumIntegrityChecker option: %w", err)
 			}
 		}
-		if err := db.setDataIntegrityChecker(checker); err != nil {
-			return err
-		}
-		return nil
+		return store.IntegrityChecker(checker)(db)
 	}
 }
 
@@ -59,7 +58,7 @@ type ChecksumDataIntegrityChecker struct {
 	algorithm ChecksumAlgorithm
 }
 
-func (c *ChecksumDataIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum ReadChecksum) io.ReadCloser {
+func (c *ChecksumDataIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum store.ReadChecksum) io.ReadCloser {
 	return &checksumReader{
 		reader:       reader,
 		sum:          c.algorithm.NewSum(),
@@ -69,7 +68,7 @@ func (c *ChecksumDataIntegrityChecker) DecorateReader(reader io.ReadCloser, name
 	}
 }
 
-func (c *ChecksumDataIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum WriteChecksum) io.WriteCloser {
+func (c *ChecksumDataIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum store.WriteChecksum) io.WriteCloser {
 	return &checksumWriter{
 		writer:        writer,
 		sum:           c.algorithm.NewSum(),
@@ -84,7 +83,7 @@ type checksumReader struct {
 	name         string
 	sum          Sum
 	algorithm    string
-	readChecksum ReadChecksum
+	readChecksum store.ReadChecksum
 }
 
 func (c *checksumReader) Read(p []byte) (int, error) {
@@ -115,7 +114,7 @@ type checksumWriter struct {
 	name          string
 	sum           Sum
 	algorithm     string
-	writeChecksum WriteChecksum
+	writeChecksum store.WriteChecksum
 }
 
 func (c *checksumWriter) Write(p []byte) (n int, err error) {

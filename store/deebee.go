@@ -121,9 +121,6 @@ func (db *DB) Reader() (io.ReadCloser, error) {
 }
 
 func (db *DB) setDataIntegrityChecker(checker DataIntegrityChecker) error {
-	if db.dataIntegrityChecker != nil {
-		return fmt.Errorf("DataIntegrityChecker configured twice")
-	}
 	db.dataIntegrityChecker = checker
 	return nil
 }
@@ -132,7 +129,18 @@ func (db *DB) useDefaultDataIntegrityCheckerIfNotSet() error {
 	if db.dataIntegrityChecker != nil {
 		return nil
 	}
-	return ChecksumIntegrityChecker()(db)
+	db.dataIntegrityChecker = noDataIntegrityCheck{}
+	return nil
+}
+
+type noDataIntegrityCheck struct{}
+
+func (n noDataIntegrityCheck) DecorateReader(reader io.ReadCloser, name string, readChecksum ReadChecksum) io.ReadCloser {
+	return reader
+}
+
+func (n noDataIntegrityCheck) DecorateWriter(writer io.WriteCloser, name string, writeChecksum WriteChecksum) io.WriteCloser {
+	return writer
 }
 
 func (db *DB) useDefaultCompacterIfNotSet() {
