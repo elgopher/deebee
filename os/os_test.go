@@ -5,13 +5,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/jacekolszak/deebee/dirtest"
 	standardos "github.com/jacekolszak/deebee/os"
 	"github.com/jacekolszak/deebee/store"
-	"github.com/jacekolszak/deebee/test"
 	"github.com/stretchr/testify/require"
 )
 
-var dirs = map[string]test.NewDir{
+var dirs = map[string]dirtest.NewDir{
 	"existing root": existingRootDir,
 	"created root":  makeRootDir,
 	"nested":        makeNestedDir,
@@ -39,39 +39,39 @@ func makeNestedDir(t *testing.T) store.Dir {
 }
 
 func TestOsDir_FileWriter(t *testing.T) {
-	test.TestDir_FileWriter(t, dirs)
+	dirtest.TestDir_FileWriter(t, dirs)
 }
 
 func TestFileWriter_Write(t *testing.T) {
-	test.TestFileWriter_Write(t, dirs)
+	dirtest.TestFileWriter_Write(t, dirs)
 }
 
 func TestOsDir_FileReader(t *testing.T) {
-	test.TestDir_FileReader(t, dirs)
+	dirtest.TestDir_FileReader(t, dirs)
 }
 
 func TestFileReader_Read(t *testing.T) {
-	test.TestFileReader_Read(t, dirs)
+	dirtest.TestFileReader_Read(t, dirs)
 }
 
 func TestOsDir_Exists(t *testing.T) {
-	test.TestDir_Exists(t, dirs)
+	dirtest.TestDir_Exists(t, dirs)
 }
 
 func TestOsDir_Mkdir(t *testing.T) {
-	test.TestDir_Mkdir(t, dirs)
+	dirtest.TestDir_Mkdir(t, dirs)
 }
 
 func TestOsDir_Dir(t *testing.T) {
-	test.TestDir_Dir(t, dirs)
+	dirtest.TestDir_Dir(t, dirs)
 }
 
 func TestOsDir_ListFiles(t *testing.T) {
-	test.TestDir_ListFiles(t, dirs)
+	dirtest.TestDir_ListFiles(t, dirs)
 }
 
 func TestOsDir_DeleteFile(t *testing.T) {
-	test.TestDir_DeleteFile(t, dirs)
+	dirtest.TestDir_DeleteFile(t, dirs)
 }
 
 func createTempDir(t *testing.T) string {

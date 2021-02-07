@@ -1,5 +1,5 @@
-// Package test provides reusable tests useful for testing new store.Dir implementations
-package test
+// Package dirtest provides reusable tests useful for testing new store.Dir implementations
+package dirtest
 
 import (
 	"io/ioutil"
