@@ -107,17 +107,30 @@ func TestNewCompacter(t *testing.T) {
 	})
 }
 
-func TestCompacter(t *testing.T) {
+func TestCompacter_Start(t *testing.T) {
 	t.Run("should remove one state when two states were stored and MaxVersions is 0 and MinVersion is 1", func(t *testing.T) {
 		compacter, err := compaction.NewCompacter(compaction.MaxVersions(0), compaction.MinVersions(1))
 		require.NoError(t, err)
 		state := &fake.State{}
-		compacter.Start(context.Background(), state)
 		// when
+		compacter.Start(context.Background(), state)
 		state.AddVersion(1)
 		state.AddVersion(2)
 		// then
 		assert.Eventually(t, stateRevisionsAre(state, 2), time.Second, time.Millisecond)
+	})
+
+	t.Run("should preserve 2 last updates by default", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter()
+		require.NoError(t, err)
+		state := &fake.State{}
+		// when
+		compacter.Start(context.Background(), state)
+		state.AddVersion(1)
+		state.AddVersion(2)
+		state.AddVersion(3)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 2, 3), time.Second, time.Millisecond)
 	})
 }
 
