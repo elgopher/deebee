@@ -35,7 +35,7 @@ func NewCompacter(options ...StrategyOption) (*Compacter, error) {
 	}
 	for _, option := range options {
 		if option == nil {
-			return compacter, nil // TODO BUG
+			continue
 		}
 		if err := option(compacter); err != nil {
 			return nil, err
