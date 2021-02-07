@@ -29,9 +29,9 @@ type Compacter struct {
 func NewCompacter(options ...StrategyOption) (*Compacter, error) {
 	compacter := &Compacter{
 		interval: time.Minute,
-		chooseForRemoval: func(versions []store.StateVersion) []store.StateVersion {
-			return versions
-		},
+	}
+	if err := MaxVersions(2)(compacter); err != nil {
+		return nil, err
 	}
 	for _, option := range options {
 		if option == nil {
