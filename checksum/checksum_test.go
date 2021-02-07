@@ -10,6 +10,7 @@ import (
 	"github.com/jacekolszak/deebee/checksum"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
+	"github.com/jacekolszak/deebee/storetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -61,7 +62,7 @@ func TestIntegrityChecker(t *testing.T) {
 		s, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 		require.NoError(t, err)
 		// when
-		writeData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte("data"))
 		// then
 		files := filterFilesWithExtension(dir.Files(), "fixed")
 		require.NotEmpty(t, files)
@@ -76,8 +77,8 @@ func TestIntegrityChecker(t *testing.T) {
 		require.NoError(t, err)
 		expectedData := []byte("data")
 		// when
-		writeData(t, s, expectedData)
-		actualData := readData(t, s)
+		storetest.WriteData(t, s, expectedData)
+		actualData := storetest.ReadData(t, s)
 		// then
 		assert.Equal(t, expectedData, actualData)
 	})
@@ -94,10 +95,10 @@ func TestReadAfterWrite(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				dir := fake.ExistingDir()
 				s := openStoreWithChecksumIntegrityChecker(t, dir)
-				writeData(t, s, []byte("new"))
+				storetest.WriteData(t, s, []byte("new"))
 
 				for i := 0; i < numberOfUpdates; i++ {
-					writeData(t, s, []byte("update"))
+					storetest.WriteData(t, s, []byte("update"))
 				}
 				// when
 				corruptAllFiles(dir)
@@ -113,7 +114,7 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("should return error when file was integral during verification, but became corrupted during read", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		s := openStoreWithChecksumIntegrityChecker(t, dir)
-		writeData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte("data"))
 		reader, err := s.Reader()
 		require.NoError(t, err)
 		corruptAllFiles(dir)
@@ -128,8 +129,8 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("should return last not corrupted data", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		s := openStoreWithChecksumIntegrityChecker(t, dir)
-		writeData(t, s, []byte("old"))
-		writeData(t, s, []byte("new"))
+		storetest.WriteData(t, s, []byte("old"))
+		storetest.WriteData(t, s, []byte("new"))
 		// when
 		corruptLastAddedFile(dir)
 		reader, err := s.Reader()
@@ -271,25 +272,6 @@ func TestHashSum_Marshal(t *testing.T) {
 			})
 		}
 	})
-}
-
-func writeData(t *testing.T, s *store.Store, data []byte) {
-	writer, err := s.Writer()
-	require.NoError(t, err)
-	_, err = writer.Write(data)
-	require.NoError(t, err)
-	err = writer.Close()
-	require.NoError(t, err)
-}
-
-func readData(t *testing.T, s *store.Store) []byte {
-	reader, err := s.Reader()
-	require.NoError(t, err)
-	actual, err := ioutil.ReadAll(reader)
-	require.NoError(t, err)
-	err = reader.Close()
-	require.NoError(t, err)
-	return actual
 }
 
 func corruptAllFiles(dir fake.Dir) {

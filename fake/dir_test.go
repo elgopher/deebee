@@ -4,16 +4,16 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/jacekolszak/deebee/dirtest"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
-	"github.com/jacekolszak/deebee/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const fileName = "test"
 
-var dirs = map[string]test.NewDir{
+var dirs = map[string]dirtest.NewDir{
 	"existing root": existingRootDir,
 	"created root":  makeRootDir,
 	"nested":        makeNestedDir,
@@ -46,7 +46,7 @@ func fakeDir(t *testing.T) store.Dir {
 }
 
 func TestDir_FileWriter(t *testing.T) {
-	test.TestDir_FileWriter(t, dirs)
+	dirtest.TestDir_FileWriter(t, dirs)
 }
 
 func TestDir_Files(t *testing.T) {
@@ -90,7 +90,7 @@ func TestFile_Close(t *testing.T) {
 }
 
 func TestFile_Write(t *testing.T) {
-	test.TestFileWriter_Write(t, dirs)
+	dirtest.TestFileWriter_Write(t, dirs)
 }
 
 func TestFile_Sync(t *testing.T) {
@@ -127,46 +127,46 @@ func TestFile_SyncedData(t *testing.T) {
 }
 
 func TestDir_FileReader(t *testing.T) {
-	test.TestDir_FileReader(t, dirs)
+	dirtest.TestDir_FileReader(t, dirs)
 }
 
 func TestFile_Read(t *testing.T) {
-	test.TestFileReader_Read(t, dirs)
+	dirtest.TestFileReader_Read(t, dirs)
 }
 
 func TestDir_Exists(t *testing.T) {
-	test.TestDir_Exists(t, dirs)
+	dirtest.TestDir_Exists(t, dirs)
 }
 
 func TestDir_Mkdir(t *testing.T) {
-	test.TestDir_Mkdir(t, dirs)
+	dirtest.TestDir_Mkdir(t, dirs)
 }
 
 func TestDir_Dir(t *testing.T) {
-	test.TestDir_Dir(t, dirs)
+	dirtest.TestDir_Dir(t, dirs)
 }
 
 func TestDir_ListFiles(t *testing.T) {
-	test.TestDir_ListFiles(t, dirs)
+	dirtest.TestDir_ListFiles(t, dirs)
 }
 
 func TestFile_Corrupt(t *testing.T) {
 	t.Run("should corrupt file", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		data := []byte("data")
-		test.WriteFile(t, dir, "file", data)
+		dirtest.WriteFile(t, dir, "file", data)
 		file := dir.Files()[0]
 		// when
 		file.Corrupt()
 		// then
-		actual := test.ReadFile(t, dir, "file")
+		actual := dirtest.ReadFile(t, dir, "file")
 		assert.NotEqual(t, data, actual)
 	})
 
 	t.Run("should corrupt already open file", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		data := []byte("data")
-		test.WriteFile(t, dir, "file", data)
+		dirtest.WriteFile(t, dir, "file", data)
 		reader, err := dir.FileReader("file")
 		require.NoError(t, err)
 		file := dir.Files()[0]
@@ -182,7 +182,7 @@ func TestFile_Corrupt(t *testing.T) {
 func TestDir_FakeDir(t *testing.T) {
 	t.Run("should return FakeDir with additional extending Dir", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		test.Mkdir(t, dir, "dir")
+		dirtest.Mkdir(t, dir, "dir")
 		// when
 		fakeDir := dir.FakeDir("dir")
 		assert.NotNil(t, fakeDir)
@@ -190,5 +190,5 @@ func TestDir_FakeDir(t *testing.T) {
 }
 
 func TestDir_DeleteFile(t *testing.T) {
-	test.TestDir_DeleteFile(t, dirs)
+	dirtest.TestDir_DeleteFile(t, dirs)
 }

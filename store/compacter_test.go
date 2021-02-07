@@ -8,6 +8,7 @@ import (
 	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
+	"github.com/jacekolszak/deebee/storetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,9 +42,9 @@ func TestCompacter(t *testing.T) {
 			updates = state.Updates()
 		}
 		s := openStoreWithCompacter(t, compacter)
-		writeData(t, s, []byte("new"))
+		storetest.WriteData(t, s, []byte("new"))
 		// when
-		writeData(t, s, []byte("updated"))
+		storetest.WriteData(t, s, []byte("updated"))
 		// then
 		assertUpdateReceived(t, updates)
 	})
@@ -94,7 +95,7 @@ func TestState_Versions(t *testing.T) {
 			state = s
 		}
 		s := openStoreWithCompacter(t, compacter)
-		writeData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte("data"))
 		// when
 		states, err := state.Versions()
 		require.NoError(t, err)
@@ -107,8 +108,8 @@ func TestState_Versions(t *testing.T) {
 			state = s
 		}
 		s := openStoreWithCompacter(t, compacter)
-		writeData(t, s, []byte("data"))
-		writeData(t, s, []byte("updated"))
+		storetest.WriteData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte("updated"))
 		// when
 		states, err := state.Versions()
 		require.NoError(t, err)
@@ -124,7 +125,7 @@ func TestState_Versions(t *testing.T) {
 		s := openStoreWithCompacter(t, compacter)
 		const revisions = 256
 		for i := 0; i < revisions; i++ {
-			writeData(t, s, []byte("data"))
+			storetest.WriteData(t, s, []byte("data"))
 		}
 		// when
 		states, err := state.Versions()
@@ -147,7 +148,7 @@ func TestState_Versions(t *testing.T) {
 		}
 		fakeTime := &fakeNow{currentTime: creationTime}
 		s := openStoreWithOptions(t, store.Compacter(compacter), store.Now(fakeTime.Now))
-		writeData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte("data"))
 		// when
 		fakeTime.currentTime = time2
 		states, err := state.Versions()
@@ -173,7 +174,7 @@ func TestState_Remove(t *testing.T) {
 			state = s
 		}
 		s := openStoreWithCompacter(t, compacter)
-		writeData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte("data"))
 		states, err := state.Versions()
 		require.NoError(t, err)
 		// when
@@ -191,8 +192,8 @@ func TestState_Remove(t *testing.T) {
 			state = s
 		}
 		s := openStoreWithCompacter(t, compacter)
-		writeData(t, s, []byte("data1"))
-		writeData(t, s, []byte("data2"))
+		storetest.WriteData(t, s, []byte("data1"))
+		storetest.WriteData(t, s, []byte("data2"))
 		states, err := state.Versions()
 		require.NoError(t, err)
 		removedState := states[0]
@@ -214,7 +215,7 @@ func TestState_Remove(t *testing.T) {
 		dir := failing.DeleteFile(fake.ExistingDir())
 		s := openStoreWithCompacterAndDir(t, compacter, dir)
 
-		writeData(t, s, []byte("data1"))
+		storetest.WriteData(t, s, []byte("data1"))
 		states, err := state.Versions()
 		require.NoError(t, err)
 		// when
@@ -258,13 +259,4 @@ func assertClosed(t *testing.T, channel <-chan struct{}) {
 	case <-time.After(1 * time.Second):
 		assert.FailNow(t, "timeout waiting for close")
 	}
-}
-
-func writeData(t *testing.T, s *store.Store, data []byte) {
-	writer, err := s.Writer()
-	require.NoError(t, err)
-	_, err = writer.Write(data)
-	require.NoError(t, err)
-	err = writer.Close()
-	require.NoError(t, err)
 }

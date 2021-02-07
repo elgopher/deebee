@@ -3,12 +3,12 @@ package store_test
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
+	"github.com/jacekolszak/deebee/storetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -130,9 +130,9 @@ func TestReadAfterWrite(t *testing.T) {
 
 			t.Run(name, func(t *testing.T) {
 				s := openStore(t, fake.ExistingDir())
-				writeData(t, s, data)
+				storetest.WriteData(t, s, data)
 				// when
-				actual := readData(t, s)
+				actual := storetest.ReadData(t, s)
 				// then
 				assert.Equal(t, data, actual)
 			})
@@ -142,10 +142,10 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("after update should read last written data", func(t *testing.T) {
 		s := openStore(t, fake.ExistingDir())
 		updatedData := "updated"
-		writeData(t, s, []byte("data"))
-		writeData(t, s, []byte(updatedData))
+		storetest.WriteData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte(updatedData))
 		// when
-		actual := readData(t, s)
+		actual := storetest.ReadData(t, s)
 		// then
 		assert.Equal(t, updatedData, string(actual))
 	})
@@ -153,11 +153,11 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("after two updates should read last written data", func(t *testing.T) {
 		s := openStore(t, fake.ExistingDir())
 		updatedData := "updated"
-		writeData(t, s, []byte("data1"))
-		writeData(t, s, []byte("data2"))
-		writeData(t, s, []byte(updatedData))
+		storetest.WriteData(t, s, []byte("data1"))
+		storetest.WriteData(t, s, []byte("data2"))
+		storetest.WriteData(t, s, []byte(updatedData))
 		// when
-		actual := readData(t, s)
+		actual := storetest.ReadData(t, s)
 		// then
 		assert.Equal(t, updatedData, string(actual))
 	})
@@ -165,13 +165,13 @@ func TestReadAfterWrite(t *testing.T) {
 	t.Run("should update data using different store instance", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		s := openStore(t, dir)
-		writeData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte("data"))
 
 		anotherStore := openStore(t, dir)
 		updatedData := "updated"
-		writeData(t, anotherStore, []byte(updatedData))
+		storetest.WriteData(t, anotherStore, []byte(updatedData))
 		// when
-		actual := readData(t, anotherStore)
+		actual := storetest.ReadData(t, anotherStore)
 		// then
 		assert.Equal(t, updatedData, string(actual))
 	})
@@ -183,11 +183,11 @@ func TestIntegrityChecker(t *testing.T) {
 		s, err := store.Open(dir, store.IntegrityChecker(&nullIntegrityChecker{}))
 		require.NoError(t, err)
 		notExpected := []byte("data")
-		writeData(t, s, notExpected)
+		storetest.WriteData(t, s, notExpected)
 		// when
 		corruptAllFiles(dir)
 		// then
-		data := readData(t, s)
+		data := storetest.ReadData(t, s)
 		assert.NotEqual(t, notExpected, data)
 	})
 }
@@ -232,16 +232,6 @@ func makeData(size int, fillWith byte) []byte {
 		data[i] = fillWith
 	}
 	return data
-}
-
-func readData(t *testing.T, s *store.Store) []byte {
-	reader, err := s.Reader()
-	require.NoError(t, err)
-	actual, err := ioutil.ReadAll(reader)
-	require.NoError(t, err)
-	err = reader.Close()
-	require.NoError(t, err)
-	return actual
 }
 
 func corruptAllFiles(dir fake.Dir) {
