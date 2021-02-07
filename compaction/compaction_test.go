@@ -133,8 +133,7 @@ func allFilesRemoved(s *store.Store) func() bool {
 
 func TestMaxVersions(t *testing.T) {
 	t.Run("negative max returns error", func(t *testing.T) {
-		strategy := compaction.Strategy(compaction.MaxVersions(-1))
-		_, err := store.Open(fake.ExistingDir(), strategy)
+		_, err := compaction.NewCompacter(compaction.MaxVersions(-1))
 		assert.Error(t, err)
 	})
 
@@ -172,8 +171,7 @@ func stateRevisionsAre(s *fake.State, expected ...int) func() bool {
 
 func TestMinVersions(t *testing.T) {
 	t.Run("negative min returns error", func(t *testing.T) {
-		strategy := compaction.Strategy(compaction.MinVersions(-1))
-		_, err := store.Open(fake.ExistingDir(), strategy)
+		_, err := compaction.NewCompacter(compaction.MinVersions(-1))
 		assert.Error(t, err)
 	})
 
@@ -191,14 +189,12 @@ func TestMinVersions(t *testing.T) {
 
 func TestInterval(t *testing.T) {
 	t.Run("negative interval returns error", func(t *testing.T) {
-		strategy := compaction.Strategy(compaction.Interval(-1))
-		_, err := store.Open(fake.ExistingDir(), strategy)
+		_, err := compaction.NewCompacter(compaction.Interval(-1))
 		assert.Error(t, err)
 	})
 
 	t.Run("zero interval returns error", func(t *testing.T) {
-		strategy := compaction.Strategy(compaction.Interval(0))
-		_, err := store.Open(fake.ExistingDir(), strategy)
+		_, err := compaction.NewCompacter(compaction.Interval(0))
 		assert.Error(t, err)
 	})
 }
