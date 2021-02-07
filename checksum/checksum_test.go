@@ -25,9 +25,9 @@ func TestIntegrityChecker(t *testing.T) {
 		optionReturningError := func(checker *checksum.DataIntegrityChecker) error {
 			return errors.New("failed")
 		}
-		db, err := store.Open(dir, checksum.IntegrityChecker(optionReturningError))
+		s, err := store.Open(dir, checksum.IntegrityChecker(optionReturningError))
 		assert.Error(t, err)
-		assert.Nil(t, db)
+		assert.Nil(t, s)
 	})
 
 	t.Run("should return error error when checksum algorithm has invalid name", func(t *testing.T) {
@@ -35,9 +35,9 @@ func TestIntegrityChecker(t *testing.T) {
 		for _, name := range names {
 			t.Run(name, func(t *testing.T) {
 				algorithm := invalidNameAlgorithm{name: name}
-				db, err := store.Open(fake.ExistingDir(), checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
+				s, err := store.Open(fake.ExistingDir(), checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 				assert.Error(t, err)
-				assert.Nil(t, db)
+				assert.Nil(t, s)
 			})
 		}
 	})
@@ -47,9 +47,9 @@ func TestIntegrityChecker(t *testing.T) {
 		for _, name := range names {
 			t.Run(name, func(t *testing.T) {
 				algorithm := invalidNameAlgorithm{name: name}
-				db, err := store.Open(fake.ExistingDir(), checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
+				s, err := store.Open(fake.ExistingDir(), checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 				require.NoError(t, err)
-				assert.NotNil(t, db)
+				assert.NotNil(t, s)
 			})
 		}
 	})
@@ -58,10 +58,10 @@ func TestIntegrityChecker(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
+		s, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 		require.NoError(t, err)
 		// when
-		writeData(t, db, []byte("data"))
+		writeData(t, s, []byte("data"))
 		// then
 		files := filterFilesWithExtension(dir.Files(), "fixed")
 		require.NotEmpty(t, files)
@@ -72,12 +72,12 @@ func TestIntegrityChecker(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
+		s, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 		require.NoError(t, err)
 		expectedData := []byte("data")
 		// when
-		writeData(t, db, expectedData)
-		actualData := readData(t, db)
+		writeData(t, s, expectedData)
+		actualData := readData(t, s)
 		// then
 		assert.Equal(t, expectedData, actualData)
 	})
@@ -93,15 +93,15 @@ func TestReadAfterWrite(t *testing.T) {
 
 			t.Run(name, func(t *testing.T) {
 				dir := fake.ExistingDir()
-				db := openDbWithChecksumIntegrityChecker(t, dir)
-				writeData(t, db, []byte("new"))
+				s := openStoreWithChecksumIntegrityChecker(t, dir)
+				writeData(t, s, []byte("new"))
 
 				for i := 0; i < numberOfUpdates; i++ {
-					writeData(t, db, []byte("update"))
+					writeData(t, s, []byte("update"))
 				}
 				// when
 				corruptAllFiles(dir)
-				reader, err := db.Reader()
+				reader, err := s.Reader()
 				// then
 				require.Error(t, err)
 				assert.True(t, store.IsDataNotFound(err))
@@ -112,9 +112,9 @@ func TestReadAfterWrite(t *testing.T) {
 
 	t.Run("should return error when file was integral during verification, but became corrupted during read", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db := openDbWithChecksumIntegrityChecker(t, dir)
-		writeData(t, db, []byte("data"))
-		reader, err := db.Reader()
+		s := openStoreWithChecksumIntegrityChecker(t, dir)
+		writeData(t, s, []byte("data"))
+		reader, err := s.Reader()
 		require.NoError(t, err)
 		corruptAllFiles(dir)
 		_, err = ioutil.ReadAll(reader)
@@ -127,22 +127,22 @@ func TestReadAfterWrite(t *testing.T) {
 
 	t.Run("should return last not corrupted data", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db := openDbWithChecksumIntegrityChecker(t, dir)
-		writeData(t, db, []byte("old"))
-		writeData(t, db, []byte("new"))
+		s := openStoreWithChecksumIntegrityChecker(t, dir)
+		writeData(t, s, []byte("old"))
+		writeData(t, s, []byte("new"))
 		// when
 		corruptLastAddedFile(dir)
-		reader, err := db.Reader()
+		reader, err := s.Reader()
 		// then
 		require.NoError(t, err)
 		assert.NotNil(t, reader)
 	})
 }
 
-func openDbWithChecksumIntegrityChecker(t *testing.T, dir store.Dir) *store.DB {
-	db, err := store.Open(dir, checksum.IntegrityChecker())
+func openStoreWithChecksumIntegrityChecker(t *testing.T, dir store.Dir) *store.Store {
+	s, err := store.Open(dir, checksum.IntegrityChecker())
 	require.NoError(t, err)
-	return db
+	return s
 }
 
 func filterFilesWithExtension(files []*fake.File, extension string) []*fake.File {
@@ -273,8 +273,8 @@ func TestHashSum_Marshal(t *testing.T) {
 	})
 }
 
-func writeData(t *testing.T, db *store.DB, data []byte) {
-	writer, err := db.Writer()
+func writeData(t *testing.T, s *store.Store, data []byte) {
+	writer, err := s.Writer()
 	require.NoError(t, err)
 	_, err = writer.Write(data)
 	require.NoError(t, err)
@@ -282,8 +282,8 @@ func writeData(t *testing.T, db *store.DB, data []byte) {
 	require.NoError(t, err)
 }
 
-func readData(t *testing.T, db *store.DB) []byte {
-	reader, err := db.Reader()
+func readData(t *testing.T, s *store.Store) []byte {
+	reader, err := s.Reader()
 	require.NoError(t, err)
 	actual, err := ioutil.ReadAll(reader)
 	require.NoError(t, err)

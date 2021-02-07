@@ -11,19 +11,19 @@ import (
 
 func main() {
 	dir := os.Dir(tempDir())
-	fmt.Println("Database directory:", dir)
+	fmt.Println("Store directory:", dir)
 
-	db, err := deebee.Open(dir)
+	s, err := deebee.Open(dir)
 	panicIfError(err)
 
-	saveState(db, "Some very long data :)")
-	saveState(db, "Updated data even longer than before :)")
-	data := readState(db)
+	saveState(s, "Some very long data :)")
+	saveState(s, "Updated data even longer than before :)")
+	data := readState(s)
 	fmt.Println("Data read from disk:", data)
 }
 
-func saveState(db *store.DB, data string) {
-	writer, err := db.Writer()
+func saveState(s *store.Store, data string) {
+	writer, err := s.Writer()
 	panicIfError(err)
 
 	_, err = writer.Write([]byte(data))
@@ -36,8 +36,8 @@ func saveState(db *store.DB, data string) {
 	panicIfError(err)
 }
 
-func readState(db *store.DB) string {
-	reader, err := db.Reader()
+func readState(s *store.Store) string {
+	reader, err := s.Reader()
 	panicIfError(err)
 	defer reader.Close()
 

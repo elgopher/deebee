@@ -10,7 +10,7 @@ import (
 )
 
 func IntegrityChecker(options ...IntegrityCheckerOption) store.Option {
-	return func(db *store.DB) error {
+	return func(s *store.Store) error {
 		checker := &DataIntegrityChecker{
 			algorithm: CRC32,
 		}
@@ -19,7 +19,7 @@ func IntegrityChecker(options ...IntegrityCheckerOption) store.Option {
 				return fmt.Errorf("error applying IntegrityChecker option: %w", err)
 			}
 		}
-		return store.IntegrityChecker(checker)(db)
+		return store.IntegrityChecker(checker)(s)
 	}
 }
 

@@ -29,17 +29,17 @@ func BenchmarkChecksumReader_Read(b *testing.B) {
 
 		b.Run(name, func(b *testing.B) {
 			dir := fake.ExistingDir()
-			db, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
+			s, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 			require.NoError(b, err)
 			const blockSize = 8192
 			buffer := make([]byte, blockSize)
-			writeBigData(b, db, size, buffer)
+			writeBigData(b, s, size, buffer)
 
 			b.ReportAllocs()
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				reader, err := db.Reader()
+				reader, err := s.Reader()
 				require.NoError(b, err)
 				// when
 				readAll(b, reader, buffer)
@@ -48,8 +48,8 @@ func BenchmarkChecksumReader_Read(b *testing.B) {
 	}
 }
 
-func writeBigData(b *testing.B, db *store.DB, fileSize int, buffer []byte) {
-	writer, err := db.Writer()
+func writeBigData(b *testing.B, s *store.Store, fileSize int, buffer []byte) {
+	writer, err := s.Writer()
 	require.NoError(b, err)
 
 	for i := 0; i < len(buffer); i++ {

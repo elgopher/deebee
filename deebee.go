@@ -7,7 +7,7 @@ import (
 	"github.com/jacekolszak/deebee/store"
 )
 
-func Open(dir store.Dir, options ...store.Option) (*store.DB, error) {
+func Open(dir store.Dir, options ...store.Option) (*store.Store, error) {
 	defaultOptions := []store.Option{
 		checksum.IntegrityChecker(),
 		store.Compacter(noCompact),
