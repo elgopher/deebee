@@ -1,6 +1,7 @@
 package compaction_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -88,7 +89,26 @@ func TestStrategy(t *testing.T) {
 			))
 		defer s.Close()
 		storetest.WriteData(t, s, []byte("data"))
-		assert.Eventually(t, allFilesRemoved(s), 1*time.Second, time.Millisecond)
+		assert.Eventually(t, allFilesRemoved(s), time.Second, time.Millisecond)
+	})
+}
+
+func TestCompacter(t *testing.T) {
+	t.Run("should remove excessive states", func(t *testing.T) {
+		compacter := &compaction.Compacter{}
+		applyMaxVersions := compaction.MaxVersions(1)
+		err := applyMaxVersions(compacter)
+		require.NoError(t, err)
+		state := &fake.State{}
+		compacter.Start(context.Background(), state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		// then
+		assert.Eventually(t, func() bool {
+			return assert.ObjectsAreEqual([]int{2}, state.Revisions())
+		}, time.Second, time.Millisecond)
+
 	})
 }
 

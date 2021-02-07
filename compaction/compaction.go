@@ -12,6 +12,9 @@ func Strategy(options ...StrategyOption) store.Option {
 	return func(s *store.Store) error {
 		compacter := &Compacter{
 			interval: time.Minute,
+			chooseForRemoval: func(versions []store.StateVersion) []store.StateVersion {
+				return versions
+			},
 		}
 		for _, option := range options {
 			if option == nil {
@@ -21,17 +24,18 @@ func Strategy(options ...StrategyOption) store.Option {
 				return err
 			}
 		}
-		return store.Compacter(compacter.start)(s)
+		return store.Compacter(compacter.Start)(s)
 	}
 }
 
 type StrategyOption func(*Compacter) error
 
 type Compacter struct {
-	interval time.Duration
+	interval         time.Duration
+	chooseForRemoval func([]store.StateVersion) []store.StateVersion
 }
 
-func (c *Compacter) start(ctx context.Context, state store.State) {
+func (c *Compacter) Start(ctx context.Context, state store.State) {
 	go func() {
 		for {
 			select {
@@ -46,8 +50,9 @@ func (c *Compacter) start(ctx context.Context, state store.State) {
 
 func (c *Compacter) compact(state store.State) {
 	versions, _ := state.Versions()
-	for _, version := range versions {
-		_ = version.Remove()
+	forRemoval := c.chooseForRemoval(versions)
+	for _, v := range forRemoval {
+		_ = v.Remove()
 	}
 }
 
@@ -55,6 +60,12 @@ func MaxVersions(max int) StrategyOption {
 	return func(compacter *Compacter) error {
 		if max < 0 {
 			return fmt.Errorf("negative max in compaction.MaxVersions: %d", max)
+		}
+		compacter.chooseForRemoval = func(versions []store.StateVersion) []store.StateVersion {
+			if len(versions) <= max {
+				return nil
+			}
+			return versions[:len(versions)-max]
 		}
 		return nil
 	}
