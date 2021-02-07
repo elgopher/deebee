@@ -13,14 +13,14 @@ import (
 )
 
 func TestCompacter(t *testing.T) {
-	t.Run("should open database with custom compacter", func(t *testing.T) {
+	t.Run("should open store with custom compacter", func(t *testing.T) {
 		compacter := func(ctx context.Context, state store.State) {}
-		db, err := store.Open(fake.ExistingDir(), store.Compacter(compacter))
+		s, err := store.Open(fake.ExistingDir(), store.Compacter(compacter))
 		require.NoError(t, err)
-		assert.NotNil(t, db)
+		assert.NotNil(t, s)
 	})
 
-	t.Run("compacter should be executed when database is open", func(t *testing.T) {
+	t.Run("compacter should be executed when store is open", func(t *testing.T) {
 		var contextReceived context.Context
 		var stateReceived store.State
 		compacter := func(ctx context.Context, state store.State) {
@@ -28,7 +28,7 @@ func TestCompacter(t *testing.T) {
 			stateReceived = state
 		}
 		// when
-		openDbWithCompacter(t, compacter)
+		openStoreWithCompacter(t, compacter)
 		// then
 		require.NotNil(t, contextReceived)
 		require.NotNil(t, stateReceived)
@@ -40,35 +40,35 @@ func TestCompacter(t *testing.T) {
 		compacter := func(ctx context.Context, state store.State) {
 			updates = state.Updates()
 		}
-		db := openDbWithCompacter(t, compacter)
-		writeData(t, db, []byte("new"))
+		s := openStoreWithCompacter(t, compacter)
+		writeData(t, s, []byte("new"))
 		// when
-		writeData(t, db, []byte("updated"))
+		writeData(t, s, []byte("updated"))
 		// then
 		assertUpdateReceived(t, updates)
 	})
 
-	t.Run("should cancel context passed to compacter when database is closed", func(t *testing.T) {
+	t.Run("should cancel context passed to compacter when store is closed", func(t *testing.T) {
 		var contextReceived context.Context
 		compacter := func(ctx context.Context, state store.State) {
 			contextReceived = ctx
 		}
-		db := openDbWithCompacter(t, compacter)
+		s := openStoreWithCompacter(t, compacter)
 		// when
-		err := db.Close()
+		err := s.Close()
 		// then
 		require.NoError(t, err)
 		assertClosed(t, contextReceived.Done())
 	})
 
-	t.Run("should cancel updates channel passed to compacter when database is closed", func(t *testing.T) {
+	t.Run("should cancel updates channel passed to compacter when store is closed", func(t *testing.T) {
 		var updates <-chan struct{}
 		compacter := func(ctx context.Context, state store.State) {
 			updates = state.Updates()
 		}
-		db := openDbWithCompacter(t, compacter)
+		s := openStoreWithCompacter(t, compacter)
 		// when
-		err := db.Close()
+		err := s.Close()
 		// then
 		require.NoError(t, err)
 		assertClosed(t, updates)
@@ -81,7 +81,7 @@ func TestState_Versions(t *testing.T) {
 		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
-		openDbWithCompacter(t, compacter)
+		openStoreWithCompacter(t, compacter)
 		// when
 		versions, err := state.Versions()
 		require.NoError(t, err)
@@ -93,8 +93,8 @@ func TestState_Versions(t *testing.T) {
 		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
-		db := openDbWithCompacter(t, compacter)
-		writeData(t, db, []byte("data"))
+		s := openStoreWithCompacter(t, compacter)
+		writeData(t, s, []byte("data"))
 		// when
 		states, err := state.Versions()
 		require.NoError(t, err)
@@ -106,9 +106,9 @@ func TestState_Versions(t *testing.T) {
 		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
-		db := openDbWithCompacter(t, compacter)
-		writeData(t, db, []byte("data"))
-		writeData(t, db, []byte("updated"))
+		s := openStoreWithCompacter(t, compacter)
+		writeData(t, s, []byte("data"))
+		writeData(t, s, []byte("updated"))
 		// when
 		states, err := state.Versions()
 		require.NoError(t, err)
@@ -121,10 +121,10 @@ func TestState_Versions(t *testing.T) {
 		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
-		db := openDbWithCompacter(t, compacter)
+		s := openStoreWithCompacter(t, compacter)
 		const revisions = 256
 		for i := 0; i < revisions; i++ {
-			writeData(t, db, []byte("data"))
+			writeData(t, s, []byte("data"))
 		}
 		// when
 		states, err := state.Versions()
@@ -146,8 +146,8 @@ func TestState_Versions(t *testing.T) {
 			state = s
 		}
 		fakeTime := &fakeNow{currentTime: creationTime}
-		db := openDbWithOptions(t, store.Compacter(compacter), store.Now(fakeTime.Now))
-		writeData(t, db, []byte("data"))
+		s := openStoreWithOptions(t, store.Compacter(compacter), store.Now(fakeTime.Now))
+		writeData(t, s, []byte("data"))
 		// when
 		fakeTime.currentTime = time2
 		states, err := state.Versions()
@@ -172,8 +172,8 @@ func TestState_Remove(t *testing.T) {
 		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
-		db := openDbWithCompacter(t, compacter)
-		writeData(t, db, []byte("data"))
+		s := openStoreWithCompacter(t, compacter)
+		writeData(t, s, []byte("data"))
 		states, err := state.Versions()
 		require.NoError(t, err)
 		// when
@@ -190,9 +190,9 @@ func TestState_Remove(t *testing.T) {
 		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
-		db := openDbWithCompacter(t, compacter)
-		writeData(t, db, []byte("data1"))
-		writeData(t, db, []byte("data2"))
+		s := openStoreWithCompacter(t, compacter)
+		writeData(t, s, []byte("data1"))
+		writeData(t, s, []byte("data2"))
 		states, err := state.Versions()
 		require.NoError(t, err)
 		removedState := states[0]
@@ -212,9 +212,9 @@ func TestState_Remove(t *testing.T) {
 			state = s
 		}
 		dir := failing.DeleteFile(fake.ExistingDir())
-		db := openDbWithCompacterAndDir(t, compacter, dir)
+		s := openStoreWithCompacterAndDir(t, compacter, dir)
 
-		writeData(t, db, []byte("data1"))
+		writeData(t, s, []byte("data1"))
 		states, err := state.Versions()
 		require.NoError(t, err)
 		// when
@@ -224,22 +224,22 @@ func TestState_Remove(t *testing.T) {
 	})
 }
 
-func openDbWithCompacter(t *testing.T, compacter store.CompactState) *store.DB {
-	return openDbWithCompacterAndDir(t, compacter, fake.ExistingDir())
+func openStoreWithCompacter(t *testing.T, compacter store.CompactState) *store.Store {
+	return openStoreWithCompacterAndDir(t, compacter, fake.ExistingDir())
 }
 
-func openDbWithCompacterAndDir(t *testing.T, compacter store.CompactState, dir store.Dir) *store.DB {
-	db, err := store.Open(dir, store.Compacter(compacter))
+func openStoreWithCompacterAndDir(t *testing.T, compacter store.CompactState, dir store.Dir) *store.Store {
+	s, err := store.Open(dir, store.Compacter(compacter))
 	require.NoError(t, err)
-	assert.NotNil(t, db)
-	return db
+	assert.NotNil(t, s)
+	return s
 }
 
-func openDbWithOptions(t *testing.T, options ...store.Option) *store.DB {
-	db, err := store.Open(fake.ExistingDir(), options...)
+func openStoreWithOptions(t *testing.T, options ...store.Option) *store.Store {
+	s, err := store.Open(fake.ExistingDir(), options...)
 	require.NoError(t, err)
-	assert.NotNil(t, db)
-	return db
+	assert.NotNil(t, s)
+	return s
 }
 
 func assertUpdateReceived(t *testing.T, updates <-chan struct{}) {
@@ -260,8 +260,8 @@ func assertClosed(t *testing.T, channel <-chan struct{}) {
 	}
 }
 
-func writeData(t *testing.T, db *store.DB, data []byte) {
-	writer, err := db.Writer()
+func writeData(t *testing.T, s *store.Store, data []byte) {
+	writer, err := s.Writer()
 	require.NoError(t, err)
 	_, err = writer.Write(data)
 	require.NoError(t, err)

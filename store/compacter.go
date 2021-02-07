@@ -6,8 +6,8 @@ import (
 )
 
 func Compacter(compacter CompactState) Option {
-	return func(db *DB) error {
-		db.compacter = compacter
+	return func(s *Store) error {
+		s.compacter = compacter
 		return nil
 	}
 }

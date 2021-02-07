@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func Open(dir Dir, options ...Option) (*DB, error) {
+func Open(dir Dir, options ...Option) (*Store, error) {
 	if dir == nil {
 		return nil, errors.New("nil dir")
 	}
@@ -18,10 +18,10 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 		return nil, err
 	}
 	if !dirExists {
-		return nil, newClientError(fmt.Sprintf("database dir %s not found", dir))
+		return nil, newClientError(fmt.Sprintf("store dir %s not found", dir))
 	}
 
-	db := &DB{
+	newStore := &Store{
 		dir:   dir,
 		state: openState(dir),
 		now:   time.Now,
@@ -29,38 +29,38 @@ func Open(dir Dir, options ...Option) (*DB, error) {
 
 	for _, apply := range options {
 		if apply != nil {
-			if err := apply(db); err != nil {
+			if err := apply(newStore); err != nil {
 				return nil, fmt.Errorf("applying option failed: %w", err)
 			}
 		}
 	}
 
-	if err := db.useDefaultDataIntegrityCheckerIfNotSet(); err != nil {
+	if err := newStore.useDefaultDataIntegrityCheckerIfNotSet(); err != nil {
 		return nil, err
 	}
-	db.useDefaultCompacterIfNotSet()
-	db.startCompacter()
-	return db, nil
+	newStore.useDefaultCompacterIfNotSet()
+	newStore.startCompacter()
+	return newStore, nil
 }
 
-type Option func(db *DB) error
+type Option func(*Store) error
 
 func IntegrityChecker(checker DataIntegrityChecker) Option {
-	return func(db *DB) error {
-		return db.setDataIntegrityChecker(checker)
+	return func(s *Store) error {
+		return s.setDataIntegrityChecker(checker)
 	}
 }
 
 func Now(now TimeNow) Option {
-	return func(db *DB) error {
-		db.now = now
+	return func(s *Store) error {
+		s.now = now
 		return nil
 	}
 }
 
 type TimeNow func() time.Time
 
-type DB struct {
+type Store struct {
 	dir                  Dir
 	dataIntegrityChecker DataIntegrityChecker
 	compacter            CompactState
@@ -80,26 +80,26 @@ type DataIntegrityChecker interface {
 }
 
 // Returns Writer for new version of state
-func (db *DB) Writer() (io.WriteCloser, error) {
-	defer db.state.notifyUpdated()
-	name, err := db.nextVersionFilename(db.dir)
+func (s *Store) Writer() (io.WriteCloser, error) {
+	defer s.state.notifyUpdated()
+	name, err := s.nextVersionFilename(s.dir)
 	if err != nil {
 		return nil, err
 	}
-	writer, err := db.dir.FileWriter(name)
+	writer, err := s.dir.FileWriter(name)
 	if err != nil {
 		return nil, err
 	}
-	return db.dataIntegrityChecker.DecorateWriter(writer, name, db.writeChecksum(name)), nil
+	return s.dataIntegrityChecker.DecorateWriter(writer, name, s.writeChecksum(name)), nil
 }
 
-func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
+func (s *Store) nextVersionFilename(stateDir Dir) (string, error) {
 	files, err := stateDir.ListFiles()
 	if err != nil {
 		return "", err
 	}
 	filename, exists := filterDataFiles(files).youngestFilename()
-	now := db.now()
+	now := s.now()
 	if !exists {
 		return generateFilename(0, now), nil
 	}
@@ -108,28 +108,28 @@ func (db *DB) nextVersionFilename(stateDir Dir) (string, error) {
 }
 
 // Returns Reader for last updated version of the state
-func (db *DB) Reader() (io.ReadCloser, error) {
-	file, err := db.latestIntegralFilename(db.dir)
+func (s *Store) Reader() (io.ReadCloser, error) {
+	file, err := s.latestIntegralFilename(s.dir)
 	if err != nil {
 		return nil, err
 	}
-	reader, err := db.dir.FileReader(file)
+	reader, err := s.dir.FileReader(file)
 	if err != nil {
 		return nil, err
 	}
-	return db.dataIntegrityChecker.DecorateReader(reader, file, db.readChecksum(file)), nil
+	return s.dataIntegrityChecker.DecorateReader(reader, file, s.readChecksum(file)), nil
 }
 
-func (db *DB) setDataIntegrityChecker(checker DataIntegrityChecker) error {
-	db.dataIntegrityChecker = checker
+func (s *Store) setDataIntegrityChecker(checker DataIntegrityChecker) error {
+	s.dataIntegrityChecker = checker
 	return nil
 }
 
-func (db *DB) useDefaultDataIntegrityCheckerIfNotSet() error {
-	if db.dataIntegrityChecker != nil {
+func (s *Store) useDefaultDataIntegrityCheckerIfNotSet() error {
+	if s.dataIntegrityChecker != nil {
 		return nil
 	}
-	db.dataIntegrityChecker = noDataIntegrityCheck{}
+	s.dataIntegrityChecker = noDataIntegrityCheck{}
 	return nil
 }
 
@@ -143,27 +143,27 @@ func (n noDataIntegrityCheck) DecorateWriter(writer io.WriteCloser, name string,
 	return writer
 }
 
-func (db *DB) useDefaultCompacterIfNotSet() {
-	if db.compacter == nil {
-		db.compacter = noCompact
+func (s *Store) useDefaultCompacterIfNotSet() {
+	if s.compacter == nil {
+		s.compacter = noCompact
 	}
 }
 
-func (db *DB) startCompacter() {
+func (s *Store) startCompacter() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	db.cancelCompacter = cancelFunc
-	db.compacter(ctx, db.state)
+	s.cancelCompacter = cancelFunc
+	s.compacter(ctx, s.state)
 }
 
-func (db *DB) Close() error {
-	db.cancelCompacter()
-	db.state.close()
+func (s *Store) Close() error {
+	s.cancelCompacter()
+	s.state.close()
 	return nil
 }
 
-func (db *DB) writeChecksum(name string) WriteChecksum {
+func (s *Store) writeChecksum(name string) WriteChecksum {
 	return func(algorithm string, sum []byte) error {
-		return writeFile(db.dir, name+"."+algorithm, sum)
+		return writeFile(s.dir, name+"."+algorithm, sum)
 	}
 }
 
@@ -180,9 +180,9 @@ func writeFile(dir Dir, name string, payload []byte) error {
 	return writer.Close()
 }
 
-func (db *DB) readChecksum(name string) ReadChecksum {
+func (s *Store) readChecksum(name string) ReadChecksum {
 	return func(algorithm string) ([]byte, error) {
-		reader, err := db.dir.FileReader(name + "." + algorithm)
+		reader, err := s.dir.FileReader(name + "." + algorithm)
 		if err != nil {
 			return nil, err
 		}
@@ -190,7 +190,7 @@ func (db *DB) readChecksum(name string) ReadChecksum {
 	}
 }
 
-func (db *DB) latestIntegralFilename(dir Dir) (string, error) {
+func (s *Store) latestIntegralFilename(dir Dir) (string, error) {
 	files, err := dir.ListFiles()
 	if err != nil {
 		return "", err
@@ -201,19 +201,19 @@ func (db *DB) latestIntegralFilename(dir Dir) (string, error) {
 		return "", &dataNotFoundError{}
 	}
 	for _, dataFile := range dataFiles {
-		if err := db.verifyChecksum(dir, dataFile); err == nil {
+		if err := s.verifyChecksum(dir, dataFile); err == nil {
 			return dataFile.name, nil
 		}
 	}
 	return "", &dataNotFoundError{}
 }
 
-func (db *DB) verifyChecksum(dir Dir, file filename) error {
+func (s *Store) verifyChecksum(dir Dir, file filename) error {
 	fileReader, err := dir.FileReader(file.name)
 	if err != nil {
 		return err
 	}
-	reader := db.dataIntegrityChecker.DecorateReader(fileReader, file.name, db.readChecksum(file.name))
+	reader := s.dataIntegrityChecker.DecorateReader(fileReader, file.name, s.readChecksum(file.name))
 	if err := readAll(reader); err != nil {
 		_ = reader.Close()
 		return err
