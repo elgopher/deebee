@@ -30,7 +30,7 @@ func BenchmarkChecksumReader_Read(b *testing.B) {
 
 		b.Run(name, func(b *testing.B) {
 			dir := fake.ExistingDir()
-			db, err := deebee.Open(dir, checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
+			db, err := deebee.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 			require.NoError(b, err)
 			const blockSize = 8192
 			buffer := make([]byte, blockSize)
