@@ -15,7 +15,7 @@ import (
 )
 
 func TestIntegrityChecker(t *testing.T) {
-	t.Run("should return default IntegrityChecker", func(t *testing.T) {
+	t.Run("should return default IntegrityChecker option", func(t *testing.T) {
 		checker := checksum.IntegrityChecker()
 		assert.NotNil(t, checker)
 	})
@@ -81,6 +81,68 @@ func TestIntegrityChecker(t *testing.T) {
 		// then
 		assert.Equal(t, expectedData, actualData)
 	})
+}
+
+func TestReadAfterWrite(t *testing.T) {
+	t.Run("should return data not found error when all files are corrupted", func(t *testing.T) {
+		tests := map[string]int{
+			"no updates": 0,
+			"one update": 1,
+		}
+		for name, numberOfUpdates := range tests {
+
+			t.Run(name, func(t *testing.T) {
+				dir := fake.ExistingDir()
+				db := openDbWithChecksumIntegrityChecker(t, dir)
+				writeData(t, db, []byte("new"))
+
+				for i := 0; i < numberOfUpdates; i++ {
+					writeData(t, db, []byte("update"))
+				}
+				// when
+				corruptAllFiles(dir)
+				reader, err := db.Reader()
+				// then
+				require.Error(t, err)
+				assert.True(t, store.IsDataNotFound(err))
+				assert.Nil(t, reader)
+			})
+		}
+	})
+
+	t.Run("should return error when file was integral during verification, but became corrupted during read", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		db := openDbWithChecksumIntegrityChecker(t, dir)
+		writeData(t, db, []byte("data"))
+		reader, err := db.Reader()
+		require.NoError(t, err)
+		corruptAllFiles(dir)
+		_, err = ioutil.ReadAll(reader)
+		require.NoError(t, err)
+		// when
+		err = reader.Close()
+		// then
+		assert.Error(t, err)
+	})
+
+	t.Run("should return last not corrupted data", func(t *testing.T) {
+		dir := fake.ExistingDir()
+		db := openDbWithChecksumIntegrityChecker(t, dir)
+		writeData(t, db, []byte("old"))
+		writeData(t, db, []byte("new"))
+		// when
+		corruptLastAddedFile(dir)
+		reader, err := db.Reader()
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, reader)
+	})
+}
+
+func openDbWithChecksumIntegrityChecker(t *testing.T, dir store.Dir) *store.DB {
+	db, err := store.Open(dir, checksum.IntegrityChecker())
+	require.NoError(t, err)
+	return db
 }
 
 func filterFilesWithExtension(files []*fake.File, extension string) []*fake.File {
@@ -228,4 +290,16 @@ func readData(t *testing.T, db *store.DB) []byte {
 	err = reader.Close()
 	require.NoError(t, err)
 	return actual
+}
+
+func corruptAllFiles(dir fake.Dir) {
+	files := dir.Files()
+	for _, file := range files {
+		file.Corrupt()
+	}
+}
+
+func corruptLastAddedFile(dir fake.Dir) {
+	files := dir.Files()
+	files[len(files)-1].Corrupt()
 }

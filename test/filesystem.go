@@ -1,4 +1,4 @@
-// Package test provides reusable tests useful for testing new deebee.Dir implementations
+// Package test provides reusable tests useful for testing new store.Dir implementations
 package test
 
 import (
