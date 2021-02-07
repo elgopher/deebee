@@ -3,6 +3,7 @@ package compaction
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jacekolszak/deebee/store"
 )
@@ -24,20 +25,28 @@ func Strategy(options ...StrategyOption) store.Option {
 
 type StrategyOption func(*Compacter) error
 
-type Compacter struct{}
+type Compacter struct {
+	interval time.Duration
+}
 
 func (c *Compacter) start(ctx context.Context, state store.State) {
 	go func() {
 		for {
 			select {
 			case <-state.Updates():
-				versions, _ := state.Versions()
-				for _, version := range versions {
-					_ = version.Remove()
-				}
+				c.compact(state)
+			case <-time.After(c.interval):
+				c.compact(state)
 			}
 		}
 	}()
+}
+
+func (c *Compacter) compact(state store.State) {
+	versions, _ := state.Versions()
+	for _, version := range versions {
+		_ = version.Remove()
+	}
 }
 
 func MaxVersions(max int) StrategyOption {
@@ -52,8 +61,18 @@ func MaxVersions(max int) StrategyOption {
 func MinVersions(min int) StrategyOption {
 	return func(compacter *Compacter) error {
 		if min < 0 {
-			return fmt.Errorf("negative max in compaction.MaxVersions: %d", min)
+			return fmt.Errorf("negative max in compaction.MinVersions: %d", min)
 		}
+		return nil
+	}
+}
+
+func Interval(i time.Duration) StrategyOption {
+	return func(compacter *Compacter) error {
+		if i < 0 {
+			return fmt.Errorf("negative interval in compaction.Interval: %d", i)
+		}
+		compacter.interval = i
 		return nil
 	}
 }

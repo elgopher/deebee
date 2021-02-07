@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jacekolszak/deebee/compaction"
+	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
 	"github.com/jacekolszak/deebee/storetest"
@@ -69,20 +70,36 @@ func TestStrategy(t *testing.T) {
 		s := openStore(t, compaction.Strategy(compaction.MaxVersions(0), compaction.MinVersions(0)))
 		defer s.Close()
 		storetest.WriteData(t, s, []byte("data"))
-		allFilesRemoved := func() bool {
-			_, err := s.Reader()
-			if err == nil {
-				return false
-			}
-			return store.IsDataNotFound(err)
-		}
-		assert.Eventually(t, allFilesRemoved, time.Second, time.Millisecond)
+		assert.Eventually(t, allFilesRemoved(s), time.Second, time.Millisecond)
 
 		t.Run("and remove them again after updating state", func(t *testing.T) {
 			storetest.WriteData(t, s, []byte("data"))
-			assert.Eventually(t, allFilesRemoved, time.Second, time.Millisecond)
+			assert.Eventually(t, allFilesRemoved(s), time.Second, time.Millisecond)
 		})
 	})
+
+	t.Run("should remove all files after DeleteFile was failed for the first time", func(t *testing.T) {
+		dir := failing.DeleteFileOnce(fake.ExistingDir())
+		s := openStoreWithDir(t, dir,
+			compaction.Strategy(
+				compaction.MaxVersions(0),
+				compaction.MinVersions(0),
+				compaction.Interval(time.Millisecond),
+			))
+		defer s.Close()
+		storetest.WriteData(t, s, []byte("data"))
+		assert.Eventually(t, allFilesRemoved(s), 1*time.Second, time.Millisecond)
+	})
+}
+
+func allFilesRemoved(s *store.Store) func() bool {
+	return func() bool {
+		_, err := s.Reader()
+		if err == nil {
+			return false
+		}
+		return store.IsDataNotFound(err)
+	}
 }
 
 func TestMaxVersions(t *testing.T) {
@@ -101,8 +118,20 @@ func TestMinVersions(t *testing.T) {
 	})
 }
 
+func TestInterval(t *testing.T) {
+	t.Run("negative interval returns error", func(t *testing.T) {
+		strategy := compaction.Strategy(compaction.Interval(-1))
+		_, err := store.Open(fake.ExistingDir(), strategy)
+		assert.Error(t, err)
+	})
+}
+
 func openStore(t *testing.T, options ...store.Option) *store.Store {
-	s, err := store.Open(fake.ExistingDir(), options...)
+	return openStoreWithDir(t, fake.ExistingDir(), options...)
+}
+
+func openStoreWithDir(t *testing.T, dir store.Dir, options ...store.Option) *store.Store {
+	s, err := store.Open(dir, options...)
 	require.NoError(t, err)
 	return s
 }

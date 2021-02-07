@@ -359,3 +359,26 @@ func TestDir_DeleteFile(t *testing.T, dirs Dirs) {
 		})
 	}
 }
+
+func TestDir_ThreadSafety(t *testing.T, dirs Dirs, moreFunctions ...func(dir store.Dir)) {
+	for dirType, newDir := range dirs {
+		t.Run(dirType, func(t *testing.T) {
+
+			t.Run("test with --race flag should not report data races", func(t *testing.T) {
+				dir := newDir(t)
+				for i := 0; i < 1000; i++ {
+					go dir.Mkdir()
+					go dir.ListFiles()
+					go dir.Exists()
+					go dir.FileReader("f")
+					go dir.FileWriter("f")
+					go dir.DeleteFile("f")
+					go dir.Dir("")
+					for _, f := range moreFunctions {
+						go f(dir)
+					}
+				}
+			})
+		})
+	}
+}
