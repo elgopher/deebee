@@ -10,7 +10,9 @@ import (
 
 func Strategy(options ...StrategyOption) store.Option {
 	return func(s *store.Store) error {
-		compacter := &Compacter{}
+		compacter := &Compacter{
+			interval: time.Minute,
+		}
 		for _, option := range options {
 			if option == nil {
 				return nil
@@ -71,6 +73,9 @@ func Interval(i time.Duration) StrategyOption {
 	return func(compacter *Compacter) error {
 		if i < 0 {
 			return fmt.Errorf("negative interval in compaction.Interval: %d", i)
+		}
+		if i == 0 {
+			return fmt.Errorf("zero interval in compaction.Interval")
 		}
 		compacter.interval = i
 		return nil

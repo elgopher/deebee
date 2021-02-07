@@ -124,6 +124,12 @@ func TestInterval(t *testing.T) {
 		_, err := store.Open(fake.ExistingDir(), strategy)
 		assert.Error(t, err)
 	})
+
+	t.Run("zero interval returns error", func(t *testing.T) {
+		strategy := compaction.Strategy(compaction.Interval(0))
+		_, err := store.Open(fake.ExistingDir(), strategy)
+		assert.Error(t, err)
+	})
 }
 
 func openStore(t *testing.T, options ...store.Option) *store.Store {
