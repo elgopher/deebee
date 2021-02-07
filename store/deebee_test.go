@@ -1,4 +1,4 @@
-package deebee_test
+package store_test
 
 import (
 	"errors"
@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
@@ -16,27 +15,27 @@ import (
 
 func TestOpen(t *testing.T) {
 	t.Run("should return error when dir is nil", func(t *testing.T) {
-		db, err := deebee.Open(nil)
+		db, err := store.Open(nil)
 		require.Error(t, err)
 		assert.Nil(t, db)
 	})
 
 	t.Run("should open db with no options", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir)
+		db, err := store.Open(dir)
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("should skip nil option", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir, nil)
+		db, err := store.Open(dir, nil)
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("should return client error when database dir does not exist", func(t *testing.T) {
-		db, err := deebee.Open(fake.MissingDir())
+		db, err := store.Open(fake.MissingDir())
 		assert.True(t, store.IsClientError(err))
 		assert.Nil(t, db)
 	})
@@ -48,7 +47,7 @@ func TestOpen(t *testing.T) {
 			return expectedError
 		}
 		// when
-		db, err := deebee.Open(dir, option)
+		db, err := store.Open(dir, option)
 		// then
 		assert.True(t, errors.Is(err, expectedError))
 		assert.Nil(t, db)
@@ -56,7 +55,7 @@ func TestOpen(t *testing.T) {
 
 	t.Run("should return error when Dir.Exists() returns error", func(t *testing.T) {
 		dir := failing.Exists(fake.ExistingDir())
-		db, err := deebee.Open(dir)
+		db, err := store.Open(dir)
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
@@ -176,66 +175,12 @@ func TestReadAfterWrite(t *testing.T) {
 		// then
 		assert.Equal(t, updatedData, string(actual))
 	})
-
-	t.Run("should return data not found error when all files are corrupted", func(t *testing.T) {
-		tests := map[string]int{
-			"no updates": 0,
-			"one update": 1,
-		}
-		for name, numberOfUpdates := range tests {
-
-			t.Run(name, func(t *testing.T) {
-				dir := fake.ExistingDir()
-				db := openDB(t, dir)
-				writeData(t, db, []byte("new"))
-
-				for i := 0; i < numberOfUpdates; i++ {
-					writeData(t, db, []byte("update"))
-				}
-				// when
-				corruptAllFiles(dir)
-				reader, err := db.Reader()
-				// then
-				require.Error(t, err)
-				assert.True(t, store.IsDataNotFound(err))
-				assert.Nil(t, reader)
-			})
-		}
-	})
-
-	t.Run("should return error when file was integral during verification, but became corrupted during read", func(t *testing.T) {
-		dir := fake.ExistingDir()
-		db := openDB(t, dir)
-		writeData(t, db, []byte("data"))
-		reader, err := db.Reader()
-		require.NoError(t, err)
-		corruptAllFiles(dir)
-		_, err = ioutil.ReadAll(reader)
-		require.NoError(t, err)
-		// when
-		err = reader.Close()
-		// then
-		assert.Error(t, err)
-	})
-
-	t.Run("should return last not corrupted data", func(t *testing.T) {
-		dir := fake.ExistingDir()
-		db := openDB(t, dir)
-		writeData(t, db, []byte("old"))
-		writeData(t, db, []byte("new"))
-		// when
-		corruptLastAddedFile(dir)
-		reader, err := db.Reader()
-		// then
-		require.NoError(t, err)
-		assert.NotNil(t, reader)
-	})
 }
 
 func TestIntegrityChecker(t *testing.T) {
 	t.Run("should use custom DataIntegrityChecker", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir, store.IntegrityChecker(&nullIntegrityChecker{}))
+		db, err := store.Open(dir, store.IntegrityChecker(&nullIntegrityChecker{}))
 		require.NoError(t, err)
 		notExpected := []byte("data")
 		writeData(t, db, notExpected)
@@ -259,18 +204,9 @@ func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string
 }
 
 func openDB(t *testing.T, dir store.Dir) *store.DB {
-	db, err := deebee.Open(dir)
+	db, err := store.Open(dir)
 	require.NoError(t, err)
 	return db
-}
-
-func writeData(t *testing.T, db *store.DB, data []byte) {
-	writer, err := db.Writer()
-	require.NoError(t, err)
-	_, err = writer.Write(data)
-	require.NoError(t, err)
-	err = writer.Close()
-	require.NoError(t, err)
 }
 
 func writeDataOrError(db *store.DB, data []byte) error {
@@ -290,6 +226,14 @@ func writeDataOrError(db *store.DB, data []byte) error {
 	return nil
 }
 
+func makeData(size int, fillWith byte) []byte {
+	data := make([]byte, size)
+	for i := 0; i < size; i++ {
+		data[i] = fillWith
+	}
+	return data
+}
+
 func readData(t *testing.T, db *store.DB) []byte {
 	reader, err := db.Reader()
 	require.NoError(t, err)
@@ -300,22 +244,9 @@ func readData(t *testing.T, db *store.DB) []byte {
 	return actual
 }
 
-func makeData(size int, fillWith byte) []byte {
-	data := make([]byte, size)
-	for i := 0; i < size; i++ {
-		data[i] = fillWith
-	}
-	return data
-}
-
 func corruptAllFiles(dir fake.Dir) {
 	files := dir.Files()
 	for _, file := range files {
 		file.Corrupt()
 	}
-}
-
-func corruptLastAddedFile(dir fake.Dir) {
-	files := dir.Files()
-	files[len(files)-1].Corrupt()
 }
