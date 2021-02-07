@@ -1,10 +1,9 @@
-package deebee_test
+package checksum_test
 
 import (
 	"io"
 	"testing"
 
-	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/checksum"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
@@ -30,7 +29,7 @@ func BenchmarkChecksumReader_Read(b *testing.B) {
 
 		b.Run(name, func(b *testing.B) {
 			dir := fake.ExistingDir()
-			db, err := deebee.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
+			db, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 			require.NoError(b, err)
 			const blockSize = 8192
 			buffer := make([]byte, blockSize)
