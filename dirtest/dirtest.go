@@ -367,12 +367,12 @@ func TestDir_ThreadSafety(t *testing.T, dirs Dirs, moreFunctions ...func(dir sto
 			t.Run("test with --race flag should not report data races", func(t *testing.T) {
 				dir := newDir(t)
 				for i := 0; i < 100; i++ {
-					go dir.Mkdir()
-					go dir.ListFiles()
-					go dir.Exists()
-					go dir.FileReader("f")
-					go dir.FileWriter("f")
-					go dir.DeleteFile("f")
+					go func() { _ = dir.Mkdir() }()
+					go func() { _, _ = dir.ListFiles() }()
+					go func() { _, _ = dir.Exists() }()
+					go func() { _, _ = dir.FileReader("f") }()
+					go func() { _, _ = dir.FileWriter("f") }()
+					go func() { _ = dir.DeleteFile("f") }()
 					go dir.Dir("")
 					for _, f := range moreFunctions {
 						go f(dir)
