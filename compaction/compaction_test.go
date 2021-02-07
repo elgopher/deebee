@@ -94,10 +94,13 @@ func TestStrategy(t *testing.T) {
 }
 
 func TestCompacter(t *testing.T) {
-	t.Run("should remove excessive states", func(t *testing.T) {
+	t.Run("should remove one state when two states were stored and MaxVersions is 0 and MinVersion is 1", func(t *testing.T) {
 		compacter := &compaction.Compacter{}
-		applyMaxVersions := compaction.MaxVersions(1)
+		applyMaxVersions := compaction.MaxVersions(0)
 		err := applyMaxVersions(compacter)
+		require.NoError(t, err)
+		applyMinVersions := compaction.MinVersions(1)
+		err = applyMinVersions(compacter)
 		require.NoError(t, err)
 		state := &fake.State{}
 		compacter.Start(context.Background(), state)
@@ -105,10 +108,7 @@ func TestCompacter(t *testing.T) {
 		state.AddVersion(1)
 		state.AddVersion(2)
 		// then
-		assert.Eventually(t, func() bool {
-			return assert.ObjectsAreEqual([]int{2}, state.Revisions())
-		}, time.Second, time.Millisecond)
-
+		assert.Eventually(t, stateRevisionsAre(state, 2), time.Second, time.Millisecond)
 	})
 }
 
@@ -128,6 +128,41 @@ func TestMaxVersions(t *testing.T) {
 		_, err := store.Open(fake.ExistingDir(), strategy)
 		assert.Error(t, err)
 	})
+
+	t.Run("should remove one state when two states were stored and MaxVersions is 1", func(t *testing.T) {
+		compacter := &compaction.Compacter{}
+		applyMaxVersions := compaction.MaxVersions(1)
+		err := applyMaxVersions(compacter)
+		require.NoError(t, err)
+		state := &fake.State{}
+		compacter.Start(context.Background(), state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 2), time.Second, time.Millisecond)
+	})
+
+	t.Run("should remove two states when three states were stored and MaxVersions is 2", func(t *testing.T) {
+		compacter := &compaction.Compacter{}
+		applyMaxVersions := compaction.MaxVersions(2)
+		err := applyMaxVersions(compacter)
+		require.NoError(t, err)
+		state := &fake.State{}
+		compacter.Start(context.Background(), state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		state.AddVersion(3)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 2, 3), time.Second, time.Millisecond)
+	})
+}
+
+func stateRevisionsAre(s *fake.State, expected ...int) func() bool {
+	return func() bool {
+		return assert.ObjectsAreEqual(expected, s.Revisions())
+	}
 }
 
 func TestMinVersions(t *testing.T) {
@@ -135,6 +170,19 @@ func TestMinVersions(t *testing.T) {
 		strategy := compaction.Strategy(compaction.MinVersions(-1))
 		_, err := store.Open(fake.ExistingDir(), strategy)
 		assert.Error(t, err)
+	})
+
+	t.Run("should preserve state when number of versions smaller than MinVersions", func(t *testing.T) {
+		compacter := &compaction.Compacter{}
+		applyMinVersions := compaction.MinVersions(2)
+		err := applyMinVersions(compacter)
+		require.NoError(t, err)
+		state := &fake.State{}
+		compacter.Start(context.Background(), state)
+		// when
+		state.AddVersion(1)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 1), time.Second, time.Millisecond)
 	})
 }
 
