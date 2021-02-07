@@ -60,7 +60,6 @@ func Now(now TimeNow) Option {
 
 type TimeNow func() time.Time
 
-// DB stores states. Each state has a key and data.
 type DB struct {
 	dir                  Dir
 	dataIntegrityChecker DataIntegrityChecker
@@ -180,5 +179,49 @@ func (db *DB) readChecksum(name string) ReadChecksum {
 			return nil, err
 		}
 		return ioutil.ReadAll(reader)
+	}
+}
+
+func (db *DB) latestIntegralFilename(dir Dir) (string, error) {
+	files, err := dir.ListFiles()
+	if err != nil {
+		return "", err
+	}
+	dataFiles := filterDataFiles(files)
+	sortByVersionDescending(dataFiles)
+	if len(dataFiles) == 0 {
+		return "", &dataNotFoundError{}
+	}
+	for _, dataFile := range dataFiles {
+		if err := db.verifyChecksum(dir, dataFile); err == nil {
+			return dataFile.name, nil
+		}
+	}
+	return "", &dataNotFoundError{}
+}
+
+func (db *DB) verifyChecksum(dir Dir, file filename) error {
+	fileReader, err := dir.FileReader(file.name)
+	if err != nil {
+		return err
+	}
+	reader := db.dataIntegrityChecker.DecorateReader(fileReader, file.name, db.readChecksum(file.name))
+	if err := readAll(reader); err != nil {
+		_ = reader.Close()
+		return err
+	}
+	return reader.Close()
+}
+
+func readAll(reader io.ReadCloser) error {
+	buffer := make([]byte, 4096) // FIXME reuse the buffer and make it configurable
+	for {
+		_, err := reader.Read(buffer)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
 	}
 }
