@@ -77,8 +77,14 @@ func TestNewCompacter(t *testing.T) {
 	})
 
 	t.Run("should skip nil StrategyOption", func(t *testing.T) {
-		_, err := compaction.NewCompacter(nil)
+		var secondOptionApplied bool
+		secondOption := func(compacter *compaction.Compacter) error {
+			secondOptionApplied = true
+			return nil
+		}
+		_, err := compaction.NewCompacter(nil, secondOption)
 		assert.NoError(t, err)
+		assert.True(t, secondOptionApplied)
 	})
 
 	t.Run("should apply all options", func(t *testing.T) {
