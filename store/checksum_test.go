@@ -1,4 +1,4 @@
-package deebee_test
+package store_test
 
 import (
 	"errors"
@@ -6,31 +6,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/fake"
+	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestChecksumIntegrityChecker(t *testing.T) {
 	t.Run("should return default ChecksumIntegrityChecker", func(t *testing.T) {
-		checker := deebee.ChecksumIntegrityChecker()
+		checker := store.ChecksumIntegrityChecker()
 		assert.NotNil(t, checker)
 	})
 
 	t.Run("should return error when ChecksumIntegrityChecker is set twice", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(), deebee.ChecksumIntegrityChecker())
+		db, err := store.Open(dir, store.ChecksumIntegrityChecker(), store.ChecksumIntegrityChecker())
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
 
 	t.Run("should return error when option returned error", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		optionReturningError := func(checker *deebee.ChecksumDataIntegrityChecker) error {
+		optionReturningError := func(checker *store.ChecksumDataIntegrityChecker) error {
 			return errors.New("failed")
 		}
-		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(optionReturningError))
+		db, err := store.Open(dir, store.ChecksumIntegrityChecker(optionReturningError))
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
@@ -40,7 +40,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		for _, name := range names {
 			t.Run(name, func(t *testing.T) {
 				algorithm := invalidNameAlgorithm{name: name}
-				db, err := deebee.Open(fake.ExistingDir(), deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
+				db, err := store.Open(fake.ExistingDir(), store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
 				assert.Error(t, err)
 				assert.Nil(t, db)
 			})
@@ -52,7 +52,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		for _, name := range names {
 			t.Run(name, func(t *testing.T) {
 				algorithm := invalidNameAlgorithm{name: name}
-				db, err := deebee.Open(fake.ExistingDir(), deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
+				db, err := store.Open(fake.ExistingDir(), store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
 				require.NoError(t, err)
 				assert.NotNil(t, db)
 			})
@@ -63,7 +63,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
+		db, err := store.Open(dir, store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
 		require.NoError(t, err)
 		// when
 		writeData(t, db, []byte("data"))
@@ -77,7 +77,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir, deebee.ChecksumIntegrityChecker(deebee.Algorithm(algorithm)))
+		db, err := store.Open(dir, store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
 		require.NoError(t, err)
 		expectedData := []byte("data")
 		// when
@@ -102,7 +102,7 @@ type invalidNameAlgorithm struct {
 	name string
 }
 
-func (i invalidNameAlgorithm) NewSum() deebee.Sum {
+func (i invalidNameAlgorithm) NewSum() store.Sum {
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (c fixedAlgorithm) Name() string {
 	return "fixed"
 }
 
-func (c fixedAlgorithm) NewSum() deebee.Sum {
+func (c fixedAlgorithm) NewSum() store.Sum {
 	return &fixedSum{sum: c.sum}
 }
 
@@ -136,47 +136,47 @@ func (c *fixedSum) Marshal() []byte {
 
 func TestHashSum_Marshal(t *testing.T) {
 	tests := map[string]struct {
-		algorithm   deebee.ChecksumAlgorithm
+		algorithm   store.ChecksumAlgorithm
 		expectedSum string
 	}{
 		"crc32": {
-			algorithm:   deebee.CRC32,
+			algorithm:   store.CRC32,
 			expectedSum: "adf3f363",
 		},
 		"crc64": {
-			algorithm:   deebee.CRC64,
+			algorithm:   store.CRC64,
 			expectedSum: "3408641350000000",
 		},
 		"sha512": {
-			algorithm:   deebee.SHA512,
+			algorithm:   store.SHA512,
 			expectedSum: "77c7ce9a5d86bb386d443bb96390faa120633158699c8844c30b13ab0bf92760b7e4416aea397db91b4ac0e5dd56b8ef7e4b066162ab1fdc088319ce6defc876",
 		},
 		"md5": {
-			algorithm:   deebee.MD5,
+			algorithm:   store.MD5,
 			expectedSum: "8d777f385d3dfec8815d20f7496026dc",
 		},
 		"fnv32": {
-			algorithm:   deebee.FNV32,
+			algorithm:   store.FNV32,
 			expectedSum: "74cb23bd",
 		},
 		"fnv32a": {
-			algorithm:   deebee.FNV32a,
+			algorithm:   store.FNV32a,
 			expectedSum: "d872e2a5",
 		},
 		"fnv64": {
-			algorithm:   deebee.FNV64,
+			algorithm:   store.FNV64,
 			expectedSum: "14dfb87eecce7a1d",
 		},
 		"fnv64a": {
-			algorithm:   deebee.FNV64a,
+			algorithm:   store.FNV64a,
 			expectedSum: "855b556730a34a05",
 		},
 		"fnv128": {
-			algorithm:   deebee.FNV128,
+			algorithm:   store.FNV128,
 			expectedSum: "66ab729108757277b806e89c746322b5",
 		},
 		"fnv128a": {
-			algorithm:   deebee.FNV128a,
+			algorithm:   store.FNV128a,
 			expectedSum: "695b598c64757277b806e9704d5d6a5d",
 		},
 		"fixed": {

@@ -1,4 +1,4 @@
-package deebee_test
+package store_test
 
 import (
 	"errors"
@@ -6,48 +6,48 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
+	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestOpen(t *testing.T) {
 	t.Run("should return error when dir is nil", func(t *testing.T) {
-		db, err := deebee.Open(nil)
+		db, err := store.Open(nil)
 		require.Error(t, err)
 		assert.Nil(t, db)
 	})
 
 	t.Run("should open db with no options", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir)
+		db, err := store.Open(dir)
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("should skip nil option", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir, nil)
+		db, err := store.Open(dir, nil)
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("should return client error when database dir does not exist", func(t *testing.T) {
-		db, err := deebee.Open(fake.MissingDir())
-		assert.True(t, deebee.IsClientError(err))
+		db, err := store.Open(fake.MissingDir())
+		assert.True(t, store.IsClientError(err))
 		assert.Nil(t, db)
 	})
 
 	t.Run("should return error when option returned error", func(t *testing.T) {
 		dir := fake.ExistingDir()
 		expectedError := &testError{}
-		option := func(db *deebee.DB) error {
+		option := func(db *store.DB) error {
 			return expectedError
 		}
 		// when
-		db, err := deebee.Open(dir, option)
+		db, err := store.Open(dir, option)
 		// then
 		assert.True(t, errors.Is(err, expectedError))
 		assert.Nil(t, db)
@@ -55,7 +55,7 @@ func TestOpen(t *testing.T) {
 
 	t.Run("should return error when Dir.Exists() returns error", func(t *testing.T) {
 		dir := failing.Exists(fake.ExistingDir())
-		db, err := deebee.Open(dir)
+		db, err := store.Open(dir)
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
@@ -74,12 +74,12 @@ func TestDB_Reader(t *testing.T) {
 		reader, err := db.Reader()
 		// then
 		assert.Nil(t, reader)
-		assert.False(t, deebee.IsClientError(err))
-		assert.True(t, deebee.IsDataNotFound(err))
+		assert.False(t, store.IsClientError(err))
+		assert.True(t, store.IsDataNotFound(err))
 	})
 
 	t.Run("should return error when DB is failing", func(t *testing.T) {
-		dirs := map[string]deebee.Dir{
+		dirs := map[string]store.Dir{
 			"ListFiles":  failing.ListFiles(fake.ExistingDir()),
 			"FileReader": failing.FileReader(fake.ExistingDir()),
 		}
@@ -102,7 +102,7 @@ func TestDB_Reader(t *testing.T) {
 
 func TestDB_Writer(t *testing.T) {
 	t.Run("should return error when DB is failing", func(t *testing.T) {
-		dirs := map[string]deebee.Dir{
+		dirs := map[string]store.Dir{
 			"FileWriter": failing.FileWriter(fake.ExistingDir()),
 		}
 		for name, dir := range dirs {
@@ -196,7 +196,7 @@ func TestReadAfterWrite(t *testing.T) {
 				reader, err := db.Reader()
 				// then
 				require.Error(t, err)
-				assert.True(t, deebee.IsDataNotFound(err))
+				assert.True(t, store.IsDataNotFound(err))
 				assert.Nil(t, reader)
 			})
 		}
@@ -234,7 +234,7 @@ func TestReadAfterWrite(t *testing.T) {
 func TestIntegrityChecker(t *testing.T) {
 	t.Run("should use custom DataIntegrityChecker", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := deebee.Open(dir, deebee.IntegrityChecker(&nullIntegrityChecker{}))
+		db, err := store.Open(dir, store.IntegrityChecker(&nullIntegrityChecker{}))
 		require.NoError(t, err)
 		notExpected := []byte("data")
 		writeData(t, db, notExpected)
@@ -249,21 +249,21 @@ func TestIntegrityChecker(t *testing.T) {
 //  Does not check integrity at all
 type nullIntegrityChecker struct{}
 
-func (c *nullIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum deebee.ReadChecksum) io.ReadCloser {
+func (c *nullIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum store.ReadChecksum) io.ReadCloser {
 	return reader
 }
 
-func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum deebee.WriteChecksum) io.WriteCloser {
+func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum store.WriteChecksum) io.WriteCloser {
 	return writer
 }
 
-func openDB(t *testing.T, dir deebee.Dir) *deebee.DB {
-	db, err := deebee.Open(dir)
+func openDB(t *testing.T, dir store.Dir) *store.DB {
+	db, err := store.Open(dir)
 	require.NoError(t, err)
 	return db
 }
 
-func writeData(t *testing.T, db *deebee.DB, data []byte) {
+func writeData(t *testing.T, db *store.DB, data []byte) {
 	writer, err := db.Writer()
 	require.NoError(t, err)
 	_, err = writer.Write(data)
@@ -272,7 +272,7 @@ func writeData(t *testing.T, db *deebee.DB, data []byte) {
 	require.NoError(t, err)
 }
 
-func writeDataOrError(db *deebee.DB, data []byte) error {
+func writeDataOrError(db *store.DB, data []byte) error {
 	writer, err := db.Writer()
 	if err != nil {
 		return err
@@ -289,7 +289,7 @@ func writeDataOrError(db *deebee.DB, data []byte) error {
 	return nil
 }
 
-func readData(t *testing.T, db *deebee.DB) []byte {
+func readData(t *testing.T, db *store.DB) []byte {
 	reader, err := db.Reader()
 	require.NoError(t, err)
 	actual, err := ioutil.ReadAll(reader)

@@ -1,29 +1,29 @@
-package deebee_test
+package store_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
+	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCompacter(t *testing.T) {
 	t.Run("should open database with custom compacter", func(t *testing.T) {
-		compacter := func(ctx context.Context, state deebee.State) {}
-		db, err := deebee.Open(fake.ExistingDir(), deebee.Compacter(compacter))
+		compacter := func(ctx context.Context, state store.State) {}
+		db, err := store.Open(fake.ExistingDir(), store.Compacter(compacter))
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("compacter should be executed when database is open", func(t *testing.T) {
 		var contextReceived context.Context
-		var stateReceived deebee.State
-		compacter := func(ctx context.Context, state deebee.State) {
+		var stateReceived store.State
+		compacter := func(ctx context.Context, state store.State) {
 			contextReceived = ctx
 			stateReceived = state
 		}
@@ -37,7 +37,7 @@ func TestCompacter(t *testing.T) {
 
 	t.Run("Updates channel should inform compacter that state was changed", func(t *testing.T) {
 		var updates <-chan struct{}
-		compacter := func(ctx context.Context, state deebee.State) {
+		compacter := func(ctx context.Context, state store.State) {
 			updates = state.Updates()
 		}
 		db := openDbWithCompacter(t, compacter)
@@ -50,7 +50,7 @@ func TestCompacter(t *testing.T) {
 
 	t.Run("should cancel context passed to compacter when database is closed", func(t *testing.T) {
 		var contextReceived context.Context
-		compacter := func(ctx context.Context, state deebee.State) {
+		compacter := func(ctx context.Context, state store.State) {
 			contextReceived = ctx
 		}
 		db := openDbWithCompacter(t, compacter)
@@ -63,7 +63,7 @@ func TestCompacter(t *testing.T) {
 
 	t.Run("should cancel updates channel passed to compacter when database is closed", func(t *testing.T) {
 		var updates <-chan struct{}
-		compacter := func(ctx context.Context, state deebee.State) {
+		compacter := func(ctx context.Context, state store.State) {
 			updates = state.Updates()
 		}
 		db := openDbWithCompacter(t, compacter)
@@ -77,8 +77,8 @@ func TestCompacter(t *testing.T) {
 
 func TestState_Versions(t *testing.T) {
 	t.Run("should return empty state versions", func(t *testing.T) {
-		var state deebee.State
-		compacter := func(ctx context.Context, s deebee.State) {
+		var state store.State
+		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
 		openDbWithCompacter(t, compacter)
@@ -89,8 +89,8 @@ func TestState_Versions(t *testing.T) {
 	})
 
 	t.Run("should return one state version", func(t *testing.T) {
-		var state deebee.State
-		compacter := func(ctx context.Context, s deebee.State) {
+		var state store.State
+		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
 		db := openDbWithCompacter(t, compacter)
@@ -102,8 +102,8 @@ func TestState_Versions(t *testing.T) {
 	})
 
 	t.Run("should return two state versions", func(t *testing.T) {
-		var state deebee.State
-		compacter := func(ctx context.Context, s deebee.State) {
+		var state store.State
+		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
 		db := openDbWithCompacter(t, compacter)
@@ -117,8 +117,8 @@ func TestState_Versions(t *testing.T) {
 	})
 
 	t.Run("should return sorted states by revision", func(t *testing.T) {
-		var state deebee.State
-		compacter := func(ctx context.Context, s deebee.State) {
+		var state store.State
+		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
 		db := openDbWithCompacter(t, compacter)
@@ -141,12 +141,12 @@ func TestState_Versions(t *testing.T) {
 		time2, err := time.Parse(time.RFC3339, "2077-01-01T12:00:00Z")
 		require.NoError(t, err)
 
-		var state deebee.State
-		compacter := func(ctx context.Context, s deebee.State) {
+		var state store.State
+		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
 		fakeTime := &fakeNow{currentTime: creationTime}
-		db := openDbWithOptions(t, deebee.Compacter(compacter), deebee.Now(fakeTime.Now))
+		db := openDbWithOptions(t, store.Compacter(compacter), store.Now(fakeTime.Now))
 		writeData(t, db, []byte("data"))
 		// when
 		fakeTime.currentTime = time2
@@ -168,8 +168,8 @@ func (t *fakeNow) Now() time.Time {
 
 func TestState_Remove(t *testing.T) {
 	t.Run("should return empty states when last remaining version is removed", func(t *testing.T) {
-		var state deebee.State
-		compacter := func(ctx context.Context, s deebee.State) {
+		var state store.State
+		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
 		db := openDbWithCompacter(t, compacter)
@@ -186,8 +186,8 @@ func TestState_Remove(t *testing.T) {
 	})
 
 	t.Run("should remove one state's version when two versions are available", func(t *testing.T) {
-		var state deebee.State
-		compacter := func(ctx context.Context, s deebee.State) {
+		var state store.State
+		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
 		db := openDbWithCompacter(t, compacter)
@@ -207,8 +207,8 @@ func TestState_Remove(t *testing.T) {
 	})
 
 	t.Run("should return error when dir.DeleteFile is failing", func(t *testing.T) {
-		var state deebee.State
-		compacter := func(ctx context.Context, s deebee.State) {
+		var state store.State
+		compacter := func(ctx context.Context, s store.State) {
 			state = s
 		}
 		dir := failing.DeleteFile(fake.ExistingDir())
@@ -224,19 +224,19 @@ func TestState_Remove(t *testing.T) {
 	})
 }
 
-func openDbWithCompacter(t *testing.T, compacter deebee.CompactState) *deebee.DB {
+func openDbWithCompacter(t *testing.T, compacter store.CompactState) *store.DB {
 	return openDbWithCompacterAndDir(t, compacter, fake.ExistingDir())
 }
 
-func openDbWithCompacterAndDir(t *testing.T, compacter deebee.CompactState, dir deebee.Dir) *deebee.DB {
-	db, err := deebee.Open(dir, deebee.Compacter(compacter))
+func openDbWithCompacterAndDir(t *testing.T, compacter store.CompactState, dir store.Dir) *store.DB {
+	db, err := store.Open(dir, store.Compacter(compacter))
 	require.NoError(t, err)
 	assert.NotNil(t, db)
 	return db
 }
 
-func openDbWithOptions(t *testing.T, options ...deebee.Option) *deebee.DB {
-	db, err := deebee.Open(fake.ExistingDir(), options...)
+func openDbWithOptions(t *testing.T, options ...store.Option) *store.DB {
+	db, err := store.Open(fake.ExistingDir(), options...)
 	require.NoError(t, err)
 	assert.NotNil(t, db)
 	return db

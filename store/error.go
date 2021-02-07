@@ -1,4 +1,4 @@
-package deebee
+package store
 
 type deebeeError struct {
 	message string

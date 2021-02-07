@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jacekolszak/deebee"
+	"github.com/jacekolszak/deebee/store"
 )
 
 func ExistingDir() Dir {
@@ -32,7 +32,7 @@ func newDir(name string, missing bool, parent *dir) *dir {
 }
 
 type Dir interface {
-	deebee.Dir
+	store.Dir
 	FakeDir(name string) Dir
 	Files() []*File
 }
@@ -74,7 +74,7 @@ func (r *reader) Close() error {
 	return nil
 }
 
-func (f *dir) FileWriter(name string) (deebee.FileWriter, error) {
+func (f *dir) FileWriter(name string) (store.FileWriter, error) {
 	if name == "" {
 		return nil, errors.New("empty file name")
 	}
@@ -111,7 +111,7 @@ func (f *dir) Mkdir() error {
 	return nil
 }
 
-func (f *dir) Dir(name string) deebee.Dir {
+func (f *dir) Dir(name string) store.Dir {
 	return f.FakeDir(name)
 }
 

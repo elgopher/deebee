@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/jacekolszak/deebee"
+	"github.com/jacekolszak/deebee/os"
+	"github.com/jacekolszak/deebee/store"
 )
 
 func main() {
-	dir := deebee.OsDir(tempDir())
+	dir := os.Dir(tempDir())
 	fmt.Println("Database directory:", dir)
 
-	db, err := deebee.Open(dir)
+	db, err := store.Open(dir)
 	panicIfError(err)
 
 	saveState(db, "Some very long data :)")
@@ -20,7 +21,7 @@ func main() {
 	fmt.Println("Data read from disk:", data)
 }
 
-func saveState(db *deebee.DB, data string) {
+func saveState(db *store.DB, data string) {
 	writer, err := db.Writer()
 	panicIfError(err)
 
@@ -34,7 +35,7 @@ func saveState(db *deebee.DB, data string) {
 	panicIfError(err)
 }
 
-func readState(db *deebee.DB) string {
+func readState(db *store.DB) string {
 	reader, err := db.Reader()
 	panicIfError(err)
 	defer reader.Close()

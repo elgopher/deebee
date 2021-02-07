@@ -5,18 +5,18 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/jacekolszak/deebee"
+	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const fileName = "test"
 
-type NewDir func(t *testing.T) deebee.Dir
+type NewDir func(t *testing.T) store.Dir
 
 type Dirs map[string]NewDir
 
-func WriteFile(t *testing.T, dir deebee.Dir, name string, data []byte) {
+func WriteFile(t *testing.T, dir store.Dir, name string, data []byte) {
 	file, err := dir.FileWriter(name)
 	require.NoError(t, err)
 
@@ -27,7 +27,7 @@ func WriteFile(t *testing.T, dir deebee.Dir, name string, data []byte) {
 	require.NoError(t, err)
 }
 
-func ReadFile(t *testing.T, dir deebee.Dir, name string) []byte {
+func ReadFile(t *testing.T, dir store.Dir, name string) []byte {
 	reader, err := dir.FileReader(name)
 	require.NoError(t, err)
 
@@ -39,7 +39,7 @@ func ReadFile(t *testing.T, dir deebee.Dir, name string) []byte {
 	return data
 }
 
-func Mkdir(t *testing.T, dir deebee.Dir, name string) deebee.Dir {
+func Mkdir(t *testing.T, dir store.Dir, name string) store.Dir {
 	err := dir.Dir(name).Mkdir()
 	require.NoError(t, err)
 	return dir.Dir(name)

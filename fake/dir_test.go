@@ -4,8 +4,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/fake"
+	"github.com/jacekolszak/deebee/store"
 	"github.com/jacekolszak/deebee/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,25 +20,25 @@ var dirs = map[string]test.NewDir{
 	"fakeDir":       fakeDir,
 }
 
-func existingRootDir(t *testing.T) deebee.Dir {
+func existingRootDir(t *testing.T) store.Dir {
 	return fake.ExistingDir()
 }
 
-func makeRootDir(t *testing.T) deebee.Dir {
+func makeRootDir(t *testing.T) store.Dir {
 	dir := fake.MissingDir()
 	err := dir.Mkdir()
 	require.NoError(t, err)
 	return dir
 }
 
-func makeNestedDir(t *testing.T) deebee.Dir {
+func makeNestedDir(t *testing.T) store.Dir {
 	dir := fake.ExistingDir()
 	err := dir.Dir("nested").Mkdir()
 	require.NoError(t, err)
 	return dir.Dir("nested")
 }
 
-func fakeDir(t *testing.T) deebee.Dir {
+func fakeDir(t *testing.T) store.Dir {
 	dir := fake.ExistingDir()
 	err := dir.Dir("nested").Mkdir()
 	require.NoError(t, err)

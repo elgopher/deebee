@@ -5,76 +5,76 @@ import (
 	"errors"
 	"io"
 
-	"github.com/jacekolszak/deebee"
+	"github.com/jacekolszak/deebee/store"
 )
 
-func Exists(decoratedDir deebee.Dir) deebee.Dir {
+func Exists(decoratedDir store.Dir) store.Dir {
 	dir := decorate(decoratedDir)
 	dir.exists = func() (bool, error) {
 		return false, errors.New("exists failed")
 	}
-	dir.dir = func(name string) deebee.Dir {
+	dir.dir = func(name string) store.Dir {
 		return Mkdir(decoratedDir.Dir(name))
 	}
 	return dir
 }
 
-func Mkdir(decoratedDir deebee.Dir) deebee.Dir {
+func Mkdir(decoratedDir store.Dir) store.Dir {
 	dir := decorate(decoratedDir)
 	dir.mkdir = func() error {
 		return errors.New("mkdir failed")
 	}
-	dir.dir = func(name string) deebee.Dir {
+	dir.dir = func(name string) store.Dir {
 		return Mkdir(decoratedDir.Dir(name))
 	}
 	return dir
 }
 
-func FileWriter(decoratedDir deebee.Dir) deebee.Dir {
+func FileWriter(decoratedDir store.Dir) store.Dir {
 	dir := decorate(decoratedDir)
-	dir.fileWriter = func(name string) (deebee.FileWriter, error) {
+	dir.fileWriter = func(name string) (store.FileWriter, error) {
 		return nil, errors.New("fileWriter failed")
 	}
-	dir.dir = func(name string) deebee.Dir {
+	dir.dir = func(name string) store.Dir {
 		return FileWriter(decoratedDir.Dir(name))
 	}
 	return dir
 }
 
-func FileReader(decoratedDir deebee.Dir) deebee.Dir {
+func FileReader(decoratedDir store.Dir) store.Dir {
 	dir := decorate(decoratedDir)
 	dir.fileReader = func(name string) (io.ReadCloser, error) {
 		return nil, errors.New("fileReader failed")
 	}
-	dir.dir = func(name string) deebee.Dir {
+	dir.dir = func(name string) store.Dir {
 		return FileReader(decoratedDir.Dir(name))
 	}
 	return dir
 }
 
-func ListFiles(decoratedDir deebee.Dir) deebee.Dir {
+func ListFiles(decoratedDir store.Dir) store.Dir {
 	dir := decorate(decoratedDir)
 	dir.listFiles = func() ([]string, error) {
 		return nil, errors.New("listFiles failed")
 	}
-	dir.dir = func(name string) deebee.Dir {
+	dir.dir = func(name string) store.Dir {
 		return ListFiles(decoratedDir.Dir(name))
 	}
 	return dir
 }
 
-func DeleteFile(decoratedDir deebee.Dir) deebee.Dir {
+func DeleteFile(decoratedDir store.Dir) store.Dir {
 	dir := decorate(decoratedDir)
 	dir.deleteFile = func(name string) error {
 		return errors.New("deleteFile failed")
 	}
-	dir.dir = func(name string) deebee.Dir {
+	dir.dir = func(name string) store.Dir {
 		return ListFiles(decoratedDir.Dir(name))
 	}
 	return dir
 }
 
-func decorate(dir deebee.Dir) *failingDir {
+func decorate(dir store.Dir) *failingDir {
 	return &failingDir{
 		fileReader: dir.FileReader,
 		fileWriter: dir.FileWriter,
@@ -87,9 +87,9 @@ func decorate(dir deebee.Dir) *failingDir {
 
 type failingDir struct {
 	fileReader func(name string) (io.ReadCloser, error)
-	fileWriter func(name string) (deebee.FileWriter, error)
+	fileWriter func(name string) (store.FileWriter, error)
 	mkdir      func() error
-	dir        func(name string) deebee.Dir
+	dir        func(name string) store.Dir
 	exists     func() (bool, error)
 	listFiles  func() ([]string, error)
 	deleteFile func(name string) error
@@ -99,7 +99,7 @@ func (d *failingDir) FileReader(name string) (io.ReadCloser, error) {
 	return d.fileReader(name)
 }
 
-func (d *failingDir) FileWriter(name string) (deebee.FileWriter, error) {
+func (d *failingDir) FileWriter(name string) (store.FileWriter, error) {
 	return d.fileWriter(name)
 }
 
@@ -107,7 +107,7 @@ func (d *failingDir) Mkdir() error {
 	return d.mkdir()
 }
 
-func (d *failingDir) Dir(name string) deebee.Dir {
+func (d *failingDir) Dir(name string) store.Dir {
 	return d.dir(name)
 }
 
