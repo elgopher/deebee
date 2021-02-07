@@ -33,6 +33,7 @@ type StrategyOption func(*Compacter) error
 type Compacter struct {
 	interval         time.Duration
 	chooseForRemoval func([]store.StateVersion) []store.StateVersion
+	minVersions      int
 }
 
 func (c *Compacter) Start(ctx context.Context, state store.State) {
@@ -50,10 +51,18 @@ func (c *Compacter) Start(ctx context.Context, state store.State) {
 
 func (c *Compacter) compact(state store.State) {
 	versions, _ := state.Versions()
+	versions = c.excludeMinimal(versions)
 	forRemoval := c.chooseForRemoval(versions)
 	for _, v := range forRemoval {
 		_ = v.Remove()
 	}
+}
+
+func (c *Compacter) excludeMinimal(versions []store.StateVersion) []store.StateVersion {
+	if len(versions) < c.minVersions {
+		return nil
+	}
+	return versions[:len(versions)-c.minVersions]
 }
 
 func MaxVersions(max int) StrategyOption {
@@ -75,6 +84,12 @@ func MinVersions(min int) StrategyOption {
 	return func(compacter *Compacter) error {
 		if min < 0 {
 			return fmt.Errorf("negative max in compaction.MinVersions: %d", min)
+		}
+		compacter.minVersions = min
+		if compacter.chooseForRemoval == nil {
+			compacter.chooseForRemoval = func(versions []store.StateVersion) []store.StateVersion {
+				return nil
+			}
 		}
 		return nil
 	}
