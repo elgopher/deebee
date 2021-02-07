@@ -366,7 +366,7 @@ func TestDir_ThreadSafety(t *testing.T, dirs Dirs, moreFunctions ...func(dir sto
 
 			t.Run("test with --race flag should not report data races", func(t *testing.T) {
 				dir := newDir(t)
-				for i := 0; i < 1000; i++ {
+				for i := 0; i < 100; i++ {
 					go dir.Mkdir()
 					go dir.ListFiles()
 					go dir.Exists()
