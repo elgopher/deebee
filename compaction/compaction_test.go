@@ -3,10 +3,12 @@ package compaction_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jacekolszak/deebee/compaction"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
+	"github.com/jacekolszak/deebee/storetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,9 +35,8 @@ func TestStrategy(t *testing.T) {
 			return nil
 		})
 		// when
-		_, err := store.Open(fake.ExistingDir(), strategy)
+		openStore(t, strategy)
 		// then
-		require.NoError(t, err)
 		assert.NotNil(t, compactionStrategyReceived)
 	})
 
@@ -58,10 +59,50 @@ func TestStrategy(t *testing.T) {
 			},
 		)
 		// when
-		_, err := store.Open(fake.ExistingDir(), strategy)
+		openStore(t, strategy)
 		// then
-		require.NoError(t, err)
 		assert.True(t, option1Applied)
 		assert.True(t, option2Applied)
 	})
+
+	t.Run("should eventually remove all files", func(t *testing.T) {
+		s := openStore(t, compaction.Strategy(compaction.MaxVersions(0), compaction.MinVersions(0)))
+		defer s.Close()
+		storetest.WriteData(t, s, []byte("data"))
+		allFilesRemoved := func() bool {
+			_, err := s.Reader()
+			if err == nil {
+				return false
+			}
+			return store.IsDataNotFound(err)
+		}
+		assert.Eventually(t, allFilesRemoved, time.Second, time.Millisecond)
+
+		t.Run("and remove them again after updating state", func(t *testing.T) {
+			storetest.WriteData(t, s, []byte("data"))
+			assert.Eventually(t, allFilesRemoved, time.Second, time.Millisecond)
+		})
+	})
+}
+
+func TestMaxVersions(t *testing.T) {
+	t.Run("negative max returns error", func(t *testing.T) {
+		strategy := compaction.Strategy(compaction.MaxVersions(-1))
+		_, err := store.Open(fake.ExistingDir(), strategy)
+		assert.Error(t, err)
+	})
+}
+
+func TestMinVersions(t *testing.T) {
+	t.Run("negative min returns error", func(t *testing.T) {
+		strategy := compaction.Strategy(compaction.MinVersions(-1))
+		_, err := store.Open(fake.ExistingDir(), strategy)
+		assert.Error(t, err)
+	})
+}
+
+func openStore(t *testing.T, options ...store.Option) *store.Store {
+	s, err := store.Open(fake.ExistingDir(), options...)
+	require.NoError(t, err)
+	return s
 }
