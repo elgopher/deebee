@@ -14,18 +14,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestChecksumIntegrityChecker(t *testing.T) {
-	t.Run("should return default ChecksumIntegrityChecker", func(t *testing.T) {
-		checker := checksum.ChecksumIntegrityChecker()
+func TestIntegrityChecker(t *testing.T) {
+	t.Run("should return default IntegrityChecker", func(t *testing.T) {
+		checker := checksum.IntegrityChecker()
 		assert.NotNil(t, checker)
 	})
 
 	t.Run("should return error when option returned error", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		optionReturningError := func(checker *checksum.ChecksumDataIntegrityChecker) error {
+		optionReturningError := func(checker *checksum.DataIntegrityChecker) error {
 			return errors.New("failed")
 		}
-		db, err := store.Open(dir, checksum.ChecksumIntegrityChecker(optionReturningError))
+		db, err := store.Open(dir, checksum.IntegrityChecker(optionReturningError))
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
@@ -35,7 +35,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		for _, name := range names {
 			t.Run(name, func(t *testing.T) {
 				algorithm := invalidNameAlgorithm{name: name}
-				db, err := store.Open(fake.ExistingDir(), checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
+				db, err := store.Open(fake.ExistingDir(), checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 				assert.Error(t, err)
 				assert.Nil(t, db)
 			})
@@ -47,7 +47,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		for _, name := range names {
 			t.Run(name, func(t *testing.T) {
 				algorithm := invalidNameAlgorithm{name: name}
-				db, err := store.Open(fake.ExistingDir(), checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
+				db, err := store.Open(fake.ExistingDir(), checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 				require.NoError(t, err)
 				assert.NotNil(t, db)
 			})
@@ -58,7 +58,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir, checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
+		db, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 		require.NoError(t, err)
 		// when
 		writeData(t, db, []byte("data"))
@@ -72,7 +72,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir, checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
+		db, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
 		require.NoError(t, err)
 		expectedData := []byte("data")
 		// when

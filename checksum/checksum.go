@@ -2,39 +2,33 @@ package checksum
 
 import (
 	"bytes"
-	"crypto/md5"
-	"crypto/sha512"
 	"fmt"
-	"hash"
-	"hash/crc32"
-	"hash/crc64"
-	"hash/fnv"
 	"io"
 	"regexp"
 
 	"github.com/jacekolszak/deebee/store"
 )
 
-func ChecksumIntegrityChecker(options ...ChecksumIntegrityCheckerOption) store.Option {
+func IntegrityChecker(options ...IntegrityCheckerOption) store.Option {
 	return func(db *store.DB) error {
-		checker := &ChecksumDataIntegrityChecker{
+		checker := &DataIntegrityChecker{
 			algorithm: CRC32,
 		}
 		for _, apply := range options {
 			if err := apply(checker); err != nil {
-				return fmt.Errorf("error applying ChecksumIntegrityChecker option: %w", err)
+				return fmt.Errorf("error applying IntegrityChecker option: %w", err)
 			}
 		}
 		return store.IntegrityChecker(checker)(db)
 	}
 }
 
-type ChecksumIntegrityCheckerOption func(*ChecksumDataIntegrityChecker) error
+type IntegrityCheckerOption func(*DataIntegrityChecker) error
 
 var algorithmNameRegex = regexp.MustCompile("^[a-z0-9]+$")
 
-func Algorithm(algorithm ChecksumAlgorithm) ChecksumIntegrityCheckerOption {
-	return func(checker *ChecksumDataIntegrityChecker) error {
+func Algorithm(algorithm ChecksumAlgorithm) IntegrityCheckerOption {
+	return func(checker *DataIntegrityChecker) error {
 		if !algorithmNameRegex.MatchString(algorithm.Name()) {
 			return fmt.Errorf("invalid algorithm name: %s", algorithm.Name())
 		}
@@ -54,11 +48,11 @@ type Sum interface {
 	Marshal() []byte
 }
 
-type ChecksumDataIntegrityChecker struct {
+type DataIntegrityChecker struct {
 	algorithm ChecksumAlgorithm
 }
 
-func (c *ChecksumDataIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum store.ReadChecksum) io.ReadCloser {
+func (c *DataIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum store.ReadChecksum) io.ReadCloser {
 	return &checksumReader{
 		reader:       reader,
 		sum:          c.algorithm.NewSum(),
@@ -68,7 +62,7 @@ func (c *ChecksumDataIntegrityChecker) DecorateReader(reader io.ReadCloser, name
 	}
 }
 
-func (c *ChecksumDataIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum store.WriteChecksum) io.WriteCloser {
+func (c *DataIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum store.WriteChecksum) io.WriteCloser {
 	return &checksumWriter{
 		writer:        writer,
 		sum:           c.algorithm.NewSum(),
@@ -132,116 +126,4 @@ func (c *checksumWriter) Close() error {
 		return err
 	}
 	return c.writer.Close()
-}
-
-var CRC64 = &algorithm{
-	newSum: func() Sum {
-		table := crc64.MakeTable(crc64.ISO)
-		return &hashSum{
-			Hash: crc64.New(table),
-		}
-	},
-	name: "crc64",
-}
-
-var CRC32 = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: crc32.New(crc32.IEEETable),
-		}
-	},
-	name: "crc32",
-}
-
-var SHA512 = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: sha512.New(),
-		}
-	},
-	name: "sha512",
-}
-
-var MD5 = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: md5.New(),
-		}
-	},
-	name: "md5",
-}
-
-var FNV32 = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: fnv.New32(),
-		}
-	},
-	name: "fnv32",
-}
-
-var FNV32a = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: fnv.New32a(),
-		}
-	},
-	name: "fnv32a",
-}
-
-var FNV64 = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: fnv.New64(),
-		}
-	},
-	name: "fnv64",
-}
-
-var FNV64a = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: fnv.New64a(),
-		}
-	},
-	name: "fnv64a",
-}
-
-var FNV128 = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: fnv.New128(),
-		}
-	},
-	name: "fnv128",
-}
-
-var FNV128a = &algorithm{
-	newSum: func() Sum {
-		return &hashSum{
-			Hash: fnv.New128a(),
-		}
-	},
-	name: "fnv128a",
-}
-
-type algorithm struct {
-	newSum func() Sum
-	name   string
-}
-
-func (h *algorithm) Name() string {
-	return h.name
-}
-
-func (h *algorithm) NewSum() Sum {
-	return h.newSum()
-}
-
-type hashSum struct {
-	hash.Hash
-}
-
-func (f *hashSum) Marshal() []byte {
-	return f.Hash.Sum([]byte{})
 }

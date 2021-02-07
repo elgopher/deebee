@@ -9,7 +9,7 @@ import (
 
 func Open(dir store.Dir, options ...store.Option) (*store.DB, error) {
 	defaultOptions := []store.Option{
-		checksum.ChecksumIntegrityChecker(),
+		checksum.IntegrityChecker(),
 		store.Compacter(noCompact),
 	}
 	mergedOptions := append(defaultOptions, options...)
