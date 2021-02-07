@@ -10,19 +10,9 @@ import (
 
 func Strategy(options ...StrategyOption) store.Option {
 	return func(s *store.Store) error {
-		compacter := &Compacter{
-			interval: time.Minute,
-			chooseForRemoval: func(versions []store.StateVersion) []store.StateVersion {
-				return versions
-			},
-		}
-		for _, option := range options {
-			if option == nil {
-				return nil
-			}
-			if err := option(compacter); err != nil {
-				return err
-			}
+		compacter, err := NewCompacter(options...)
+		if err != nil {
+			return fmt.Errorf("NewCompacter failed: %w", err)
 		}
 		return store.Compacter(compacter.Start)(s)
 	}
@@ -34,6 +24,24 @@ type Compacter struct {
 	interval         time.Duration
 	chooseForRemoval func([]store.StateVersion) []store.StateVersion
 	minVersions      int
+}
+
+func NewCompacter(options ...StrategyOption) (*Compacter, error) {
+	compacter := &Compacter{
+		interval: time.Minute,
+		chooseForRemoval: func(versions []store.StateVersion) []store.StateVersion {
+			return versions
+		},
+	}
+	for _, option := range options {
+		if option == nil {
+			return compacter, nil // TODO BUG
+		}
+		if err := option(compacter); err != nil {
+			return nil, err
+		}
+	}
+	return compacter, nil
 }
 
 func (c *Compacter) Start(ctx context.Context, state store.State) {
@@ -86,11 +94,6 @@ func MinVersions(min int) StrategyOption {
 			return fmt.Errorf("negative max in compaction.MinVersions: %d", min)
 		}
 		compacter.minVersions = min
-		if compacter.chooseForRemoval == nil {
-			compacter.chooseForRemoval = func(versions []store.StateVersion) []store.StateVersion {
-				return nil
-			}
-		}
 		return nil
 	}
 }
