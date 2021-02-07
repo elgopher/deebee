@@ -16,55 +16,10 @@ import (
 )
 
 func TestStrategy(t *testing.T) {
-	t.Run("should return error when StrategyOption returned error", func(t *testing.T) {
-		strategy := compaction.Strategy(func(*compaction.Compacter) error {
-			return errors.New("error")
-		})
-		_, err := store.Open(fake.ExistingDir(), strategy)
-		assert.Error(t, err)
-	})
-
 	t.Run("should accept strategy with default options", func(t *testing.T) {
 		defaultStrategy := compaction.Strategy()
 		_, err := store.Open(fake.ExistingDir(), defaultStrategy)
 		assert.NoError(t, err)
-	})
-
-	t.Run("should create Compacter instance and pass it to StrategyOption", func(t *testing.T) {
-		var compactionStrategyReceived *compaction.Compacter
-		strategy := compaction.Strategy(func(s *compaction.Compacter) error {
-			compactionStrategyReceived = s
-			return nil
-		})
-		// when
-		openStore(t, strategy)
-		// then
-		assert.NotNil(t, compactionStrategyReceived)
-	})
-
-	t.Run("should skip nil StrategyOption", func(t *testing.T) {
-		strategy := compaction.Strategy(nil)
-		_, err := store.Open(fake.ExistingDir(), strategy)
-		assert.NoError(t, err)
-	})
-
-	t.Run("should apply all options", func(t *testing.T) {
-		var option1Applied, option2Applied bool
-		strategy := compaction.Strategy(
-			func(*compaction.Compacter) error {
-				option1Applied = true
-				return nil
-			},
-			func(*compaction.Compacter) error {
-				option2Applied = true
-				return nil
-			},
-		)
-		// when
-		openStore(t, strategy)
-		// then
-		assert.True(t, option1Applied)
-		assert.True(t, option2Applied)
 	})
 
 	t.Run("should eventually remove all files", func(t *testing.T) {
@@ -93,14 +48,62 @@ func TestStrategy(t *testing.T) {
 	})
 }
 
+func TestNewCompacter(t *testing.T) {
+	t.Run("should return error when StrategyOption returned error", func(t *testing.T) {
+		option := func(*compaction.Compacter) error {
+			return errors.New("error")
+		}
+		_, err := compaction.NewCompacter(option)
+		assert.Error(t, err)
+	})
+
+	t.Run("should create compacter without options", func(t *testing.T) {
+		c, err := compaction.NewCompacter()
+		assert.NoError(t, err)
+		assert.NotNil(t, c)
+	})
+
+	t.Run("should pass new Compacter instance to custom StrategyOption", func(t *testing.T) {
+		var compactionStrategyReceived *compaction.Compacter
+		option := func(s *compaction.Compacter) error {
+			compactionStrategyReceived = s
+			return nil
+		}
+		// when
+		_, err := compaction.NewCompacter(option)
+		require.NoError(t, err)
+		// then
+		assert.NotNil(t, compactionStrategyReceived)
+	})
+
+	t.Run("should skip nil StrategyOption", func(t *testing.T) {
+		_, err := compaction.NewCompacter(nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("should apply all options", func(t *testing.T) {
+		var option1Applied, option2Applied bool
+		// when
+		_, err := compaction.NewCompacter(
+			func(*compaction.Compacter) error {
+				option1Applied = true
+				return nil
+			},
+			func(*compaction.Compacter) error {
+				option2Applied = true
+				return nil
+			},
+		)
+		// then
+		require.NoError(t, err)
+		assert.True(t, option1Applied)
+		assert.True(t, option2Applied)
+	})
+}
+
 func TestCompacter(t *testing.T) {
 	t.Run("should remove one state when two states were stored and MaxVersions is 0 and MinVersion is 1", func(t *testing.T) {
-		compacter := &compaction.Compacter{}
-		applyMaxVersions := compaction.MaxVersions(0)
-		err := applyMaxVersions(compacter)
-		require.NoError(t, err)
-		applyMinVersions := compaction.MinVersions(1)
-		err = applyMinVersions(compacter)
+		compacter, err := compaction.NewCompacter(compaction.MaxVersions(0), compaction.MinVersions(1))
 		require.NoError(t, err)
 		state := &fake.State{}
 		compacter.Start(context.Background(), state)
@@ -130,9 +133,7 @@ func TestMaxVersions(t *testing.T) {
 	})
 
 	t.Run("should remove one state when two states were stored and MaxVersions is 1", func(t *testing.T) {
-		compacter := &compaction.Compacter{}
-		applyMaxVersions := compaction.MaxVersions(1)
-		err := applyMaxVersions(compacter)
+		compacter, err := compaction.NewCompacter(compaction.MaxVersions(1))
 		require.NoError(t, err)
 		state := &fake.State{}
 		compacter.Start(context.Background(), state)
@@ -144,9 +145,7 @@ func TestMaxVersions(t *testing.T) {
 	})
 
 	t.Run("should remove two states when three states were stored and MaxVersions is 2", func(t *testing.T) {
-		compacter := &compaction.Compacter{}
-		applyMaxVersions := compaction.MaxVersions(2)
-		err := applyMaxVersions(compacter)
+		compacter, err := compaction.NewCompacter(compaction.MaxVersions(2))
 		require.NoError(t, err)
 		state := &fake.State{}
 		compacter.Start(context.Background(), state)
@@ -173,9 +172,7 @@ func TestMinVersions(t *testing.T) {
 	})
 
 	t.Run("should preserve state when number of versions smaller than MinVersions", func(t *testing.T) {
-		compacter := &compaction.Compacter{}
-		applyMinVersions := compaction.MinVersions(2)
-		err := applyMinVersions(compacter)
+		compacter, err := compaction.NewCompacter(compaction.MinVersions(2))
 		require.NoError(t, err)
 		state := &fake.State{}
 		compacter.Start(context.Background(), state)
