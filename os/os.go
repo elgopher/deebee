@@ -1,4 +1,4 @@
-package deebee
+package os
 
 import (
 	"errors"
@@ -6,18 +6,20 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/jacekolszak/deebee/store"
 )
 
-type OsDir string
+type Dir string
 
-func (o OsDir) FileReader(name string) (io.ReadCloser, error) {
+func (o Dir) FileReader(name string) (io.ReadCloser, error) {
 	if name == "" {
 		return nil, errors.New("empty file name")
 	}
 	return os.Open(o.path(name))
 }
 
-func (o OsDir) FileWriter(name string) (FileWriter, error) {
+func (o Dir) FileWriter(name string) (store.FileWriter, error) {
 	if name == "" {
 		return nil, errors.New("empty file name")
 	}
@@ -25,11 +27,11 @@ func (o OsDir) FileWriter(name string) (FileWriter, error) {
 	return os.OpenFile(o.path(name), flags, 0664)
 }
 
-func (o OsDir) path(name string) string {
+func (o Dir) path(name string) string {
 	return filepath.Join(string(o), name)
 }
 
-func (o OsDir) Exists() (bool, error) {
+func (o Dir) Exists() (bool, error) {
 	f, err := os.Stat(string(o))
 	if os.IsNotExist(err) {
 		return false, nil
@@ -37,7 +39,7 @@ func (o OsDir) Exists() (bool, error) {
 	return f.IsDir(), nil
 }
 
-func (o OsDir) Mkdir() error {
+func (o Dir) Mkdir() error {
 	err := os.Mkdir(string(o), 0775)
 	if os.IsExist(err) {
 		return nil
@@ -45,11 +47,11 @@ func (o OsDir) Mkdir() error {
 	return err
 }
 
-func (o OsDir) Dir(name string) Dir {
-	return OsDir(o.path(name))
+func (o Dir) Dir(name string) store.Dir {
+	return Dir(o.path(name))
 }
 
-func (o OsDir) ListFiles() ([]string, error) {
+func (o Dir) ListFiles() ([]string, error) {
 	var files []string
 	fileInfos, err := ioutil.ReadDir(string(o))
 	if err != nil {
@@ -63,6 +65,6 @@ func (o OsDir) ListFiles() ([]string, error) {
 	return files, nil
 }
 
-func (o OsDir) DeleteFile(name string) error {
+func (o Dir) DeleteFile(name string) error {
 	return os.Remove(o.path(name))
 }

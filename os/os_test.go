@@ -1,11 +1,12 @@
-package deebee_test
+package os_test
 
 import (
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/jacekolszak/deebee"
+	standardos "github.com/jacekolszak/deebee/os"
+	"github.com/jacekolszak/deebee/store"
 	"github.com/jacekolszak/deebee/test"
 	"github.com/stretchr/testify/require"
 )
@@ -16,21 +17,21 @@ var dirs = map[string]test.NewDir{
 	"nested":        makeNestedDir,
 }
 
-func existingRootDir(t *testing.T) deebee.Dir {
-	return deebee.OsDir(createTempDir(t))
+func existingRootDir(t *testing.T) store.Dir {
+	return standardos.Dir(createTempDir(t))
 }
 
-func makeRootDir(t *testing.T) deebee.Dir {
+func makeRootDir(t *testing.T) store.Dir {
 	dir := createTempDir(t)
 	err := os.RemoveAll(dir)
 	require.NoError(t, err)
-	missing := deebee.OsDir(dir)
+	missing := standardos.Dir(dir)
 	err = missing.Mkdir()
 	require.NoError(t, err)
 	return missing
 }
 
-func makeNestedDir(t *testing.T) deebee.Dir {
+func makeNestedDir(t *testing.T) store.Dir {
 	dir := existingRootDir(t)
 	err := dir.Dir("nested").Mkdir()
 	require.NoError(t, err)
