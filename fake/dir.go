@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/jacekolszak/deebee/store"
 )
@@ -43,9 +44,14 @@ type dir struct {
 	dirsByName  map[string]*dir
 	missing     bool
 	name        string
+
+	mutex sync.Mutex
 }
 
 func (f *dir) FileReader(name string) (io.ReadCloser, error) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	if name == "" {
 		return nil, errors.New("empty file name")
 	}
@@ -75,6 +81,9 @@ func (r *reader) Close() error {
 }
 
 func (f *dir) FileWriter(name string) (store.FileWriter, error) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	if name == "" {
 		return nil, errors.New("empty file name")
 	}
@@ -90,6 +99,9 @@ func (f *dir) FileWriter(name string) (store.FileWriter, error) {
 }
 
 func (f *dir) Files() []*File {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	var slice []*File
 	for _, file := range f.filesByName {
 		slice = append(slice, file)
@@ -98,10 +110,16 @@ func (f *dir) Files() []*File {
 }
 
 func (f *dir) Exists() (bool, error) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	return !f.missing, nil
 }
 
 func (f *dir) Mkdir() error {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	if f.parent != nil {
 		if f.parent.missing {
 			return fmt.Errorf("parent dir %s does not exist", f.parent.name)
@@ -116,6 +134,9 @@ func (f *dir) Dir(name string) store.Dir {
 }
 
 func (f *dir) FakeDir(name string) Dir {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	d, exists := f.dirsByName[name]
 	if !exists {
 		d = newDir(name, true, f)
@@ -125,6 +146,9 @@ func (f *dir) FakeDir(name string) Dir {
 }
 
 func (f *dir) ListFiles() ([]string, error) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	if f.missing {
 		return nil, fmt.Errorf("dir %s does not exist", f.name)
 	}
@@ -136,6 +160,9 @@ func (f *dir) ListFiles() ([]string, error) {
 }
 
 func (f *dir) DeleteFile(name string) error {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
 	_, found := f.filesByName[name]
 	if !found {
 		return fmt.Errorf("file %s does not exist", name)

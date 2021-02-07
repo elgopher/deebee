@@ -192,3 +192,10 @@ func TestDir_FakeDir(t *testing.T) {
 func TestDir_DeleteFile(t *testing.T) {
 	dirtest.TestDir_DeleteFile(t, dirs)
 }
+
+func TestDir_ThreadSafety(t *testing.T) {
+	dirtest.TestDir_ThreadSafety(t, dirs,
+		func(d store.Dir) { d.(fake.Dir).Files() },
+		func(d store.Dir) { d.(fake.Dir).FakeDir("f") },
+	)
+}

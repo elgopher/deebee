@@ -74,6 +74,10 @@ func TestOsDir_DeleteFile(t *testing.T) {
 	dirtest.TestDir_DeleteFile(t, dirs)
 }
 
+func TestDir_ThreadSafety(t *testing.T) {
+	dirtest.TestDir_ThreadSafety(t, dirs)
+}
+
 func createTempDir(t *testing.T) string {
 	dir, err := ioutil.TempDir("", "test")
 	require.NoError(t, err)
