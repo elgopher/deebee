@@ -1,9 +1,11 @@
-package store_test
+package deebee_test
 
 import (
 	"io"
 	"testing"
 
+	"github.com/jacekolszak/deebee"
+	"github.com/jacekolszak/deebee/checksum"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/require"
@@ -12,23 +14,23 @@ import (
 func BenchmarkChecksumReader_Read(b *testing.B) {
 	const size = 1024 * 1024 * 100
 
-	tests := map[string]store.ChecksumAlgorithm{
-		"crc32":   store.CRC32,
-		"crc64":   store.CRC64,
-		"sha512":  store.SHA512,
-		"md5":     store.MD5,
-		"fnv32":   store.FNV32,
-		"fnv32a":  store.FNV32a,
-		"fnv64":   store.FNV64,
-		"fnv64a":  store.FNV64a,
-		"fnv128":  store.FNV128,
-		"fnv128a": store.FNV128a,
+	tests := map[string]checksum.ChecksumAlgorithm{
+		"crc32":   checksum.CRC32,
+		"crc64":   checksum.CRC64,
+		"sha512":  checksum.SHA512,
+		"md5":     checksum.MD5,
+		"fnv32":   checksum.FNV32,
+		"fnv32a":  checksum.FNV32a,
+		"fnv64":   checksum.FNV64,
+		"fnv64a":  checksum.FNV64a,
+		"fnv128":  checksum.FNV128,
+		"fnv128a": checksum.FNV128a,
 	}
 	for name, algorithm := range tests {
 
 		b.Run(name, func(b *testing.B) {
 			dir := fake.ExistingDir()
-			db, err := store.Open(dir, store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
+			db, err := deebee.Open(dir, checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
 			require.NoError(b, err)
 			const blockSize = 8192
 			buffer := make([]byte, blockSize)

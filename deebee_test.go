@@ -1,4 +1,4 @@
-package store_test
+package deebee_test
 
 import (
 	"errors"
@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
@@ -15,27 +16,27 @@ import (
 
 func TestOpen(t *testing.T) {
 	t.Run("should return error when dir is nil", func(t *testing.T) {
-		db, err := store.Open(nil)
+		db, err := deebee.Open(nil)
 		require.Error(t, err)
 		assert.Nil(t, db)
 	})
 
 	t.Run("should open db with no options", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir)
+		db, err := deebee.Open(dir)
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("should skip nil option", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir, nil)
+		db, err := deebee.Open(dir, nil)
 		require.NoError(t, err)
 		assert.NotNil(t, db)
 	})
 
 	t.Run("should return client error when database dir does not exist", func(t *testing.T) {
-		db, err := store.Open(fake.MissingDir())
+		db, err := deebee.Open(fake.MissingDir())
 		assert.True(t, store.IsClientError(err))
 		assert.Nil(t, db)
 	})
@@ -47,7 +48,7 @@ func TestOpen(t *testing.T) {
 			return expectedError
 		}
 		// when
-		db, err := store.Open(dir, option)
+		db, err := deebee.Open(dir, option)
 		// then
 		assert.True(t, errors.Is(err, expectedError))
 		assert.Nil(t, db)
@@ -55,7 +56,7 @@ func TestOpen(t *testing.T) {
 
 	t.Run("should return error when Dir.Exists() returns error", func(t *testing.T) {
 		dir := failing.Exists(fake.ExistingDir())
-		db, err := store.Open(dir)
+		db, err := deebee.Open(dir)
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
@@ -234,7 +235,7 @@ func TestReadAfterWrite(t *testing.T) {
 func TestIntegrityChecker(t *testing.T) {
 	t.Run("should use custom DataIntegrityChecker", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir, store.IntegrityChecker(&nullIntegrityChecker{}))
+		db, err := deebee.Open(dir, store.IntegrityChecker(&nullIntegrityChecker{}))
 		require.NoError(t, err)
 		notExpected := []byte("data")
 		writeData(t, db, notExpected)
@@ -258,7 +259,7 @@ func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string
 }
 
 func openDB(t *testing.T, dir store.Dir) *store.DB {
-	db, err := store.Open(dir)
+	db, err := deebee.Open(dir)
 	require.NoError(t, err)
 	return db
 }

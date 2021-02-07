@@ -1,11 +1,13 @@
-package store_test
+package checksum_test
 
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strings"
 	"testing"
 
+	"github.com/jacekolszak/deebee/checksum"
 	"github.com/jacekolszak/deebee/fake"
 	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/assert"
@@ -14,23 +16,16 @@ import (
 
 func TestChecksumIntegrityChecker(t *testing.T) {
 	t.Run("should return default ChecksumIntegrityChecker", func(t *testing.T) {
-		checker := store.ChecksumIntegrityChecker()
+		checker := checksum.ChecksumIntegrityChecker()
 		assert.NotNil(t, checker)
-	})
-
-	t.Run("should return error when ChecksumIntegrityChecker is set twice", func(t *testing.T) {
-		dir := fake.ExistingDir()
-		db, err := store.Open(dir, store.ChecksumIntegrityChecker(), store.ChecksumIntegrityChecker())
-		assert.Error(t, err)
-		assert.Nil(t, db)
 	})
 
 	t.Run("should return error when option returned error", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		optionReturningError := func(checker *store.ChecksumDataIntegrityChecker) error {
+		optionReturningError := func(checker *checksum.ChecksumDataIntegrityChecker) error {
 			return errors.New("failed")
 		}
-		db, err := store.Open(dir, store.ChecksumIntegrityChecker(optionReturningError))
+		db, err := store.Open(dir, checksum.ChecksumIntegrityChecker(optionReturningError))
 		assert.Error(t, err)
 		assert.Nil(t, db)
 	})
@@ -40,7 +35,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		for _, name := range names {
 			t.Run(name, func(t *testing.T) {
 				algorithm := invalidNameAlgorithm{name: name}
-				db, err := store.Open(fake.ExistingDir(), store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
+				db, err := store.Open(fake.ExistingDir(), checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
 				assert.Error(t, err)
 				assert.Nil(t, db)
 			})
@@ -52,7 +47,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		for _, name := range names {
 			t.Run(name, func(t *testing.T) {
 				algorithm := invalidNameAlgorithm{name: name}
-				db, err := store.Open(fake.ExistingDir(), store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
+				db, err := store.Open(fake.ExistingDir(), checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
 				require.NoError(t, err)
 				assert.NotNil(t, db)
 			})
@@ -63,7 +58,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir, store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
+		db, err := store.Open(dir, checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
 		require.NoError(t, err)
 		// when
 		writeData(t, db, []byte("data"))
@@ -77,7 +72,7 @@ func TestChecksumIntegrityChecker(t *testing.T) {
 		expectedSum := []byte{1, 2, 3, 4}
 		algorithm := &fixedAlgorithm{sum: expectedSum}
 		dir := fake.ExistingDir()
-		db, err := store.Open(dir, store.ChecksumIntegrityChecker(store.Algorithm(algorithm)))
+		db, err := store.Open(dir, checksum.ChecksumIntegrityChecker(checksum.Algorithm(algorithm)))
 		require.NoError(t, err)
 		expectedData := []byte("data")
 		// when
@@ -102,7 +97,7 @@ type invalidNameAlgorithm struct {
 	name string
 }
 
-func (i invalidNameAlgorithm) NewSum() store.Sum {
+func (i invalidNameAlgorithm) NewSum() checksum.Sum {
 	return nil
 }
 
@@ -118,7 +113,7 @@ func (c fixedAlgorithm) Name() string {
 	return "fixed"
 }
 
-func (c fixedAlgorithm) NewSum() store.Sum {
+func (c fixedAlgorithm) NewSum() checksum.Sum {
 	return &fixedSum{sum: c.sum}
 }
 
@@ -136,47 +131,47 @@ func (c *fixedSum) Marshal() []byte {
 
 func TestHashSum_Marshal(t *testing.T) {
 	tests := map[string]struct {
-		algorithm   store.ChecksumAlgorithm
+		algorithm   checksum.ChecksumAlgorithm
 		expectedSum string
 	}{
 		"crc32": {
-			algorithm:   store.CRC32,
+			algorithm:   checksum.CRC32,
 			expectedSum: "adf3f363",
 		},
 		"crc64": {
-			algorithm:   store.CRC64,
+			algorithm:   checksum.CRC64,
 			expectedSum: "3408641350000000",
 		},
 		"sha512": {
-			algorithm:   store.SHA512,
+			algorithm:   checksum.SHA512,
 			expectedSum: "77c7ce9a5d86bb386d443bb96390faa120633158699c8844c30b13ab0bf92760b7e4416aea397db91b4ac0e5dd56b8ef7e4b066162ab1fdc088319ce6defc876",
 		},
 		"md5": {
-			algorithm:   store.MD5,
+			algorithm:   checksum.MD5,
 			expectedSum: "8d777f385d3dfec8815d20f7496026dc",
 		},
 		"fnv32": {
-			algorithm:   store.FNV32,
+			algorithm:   checksum.FNV32,
 			expectedSum: "74cb23bd",
 		},
 		"fnv32a": {
-			algorithm:   store.FNV32a,
+			algorithm:   checksum.FNV32a,
 			expectedSum: "d872e2a5",
 		},
 		"fnv64": {
-			algorithm:   store.FNV64,
+			algorithm:   checksum.FNV64,
 			expectedSum: "14dfb87eecce7a1d",
 		},
 		"fnv64a": {
-			algorithm:   store.FNV64a,
+			algorithm:   checksum.FNV64a,
 			expectedSum: "855b556730a34a05",
 		},
 		"fnv128": {
-			algorithm:   store.FNV128,
+			algorithm:   checksum.FNV128,
 			expectedSum: "66ab729108757277b806e89c746322b5",
 		},
 		"fnv128a": {
-			algorithm:   store.FNV128a,
+			algorithm:   checksum.FNV128a,
 			expectedSum: "695b598c64757277b806e9704d5d6a5d",
 		},
 		"fixed": {
@@ -214,4 +209,23 @@ func TestHashSum_Marshal(t *testing.T) {
 			})
 		}
 	})
+}
+
+func writeData(t *testing.T, db *store.DB, data []byte) {
+	writer, err := db.Writer()
+	require.NoError(t, err)
+	_, err = writer.Write(data)
+	require.NoError(t, err)
+	err = writer.Close()
+	require.NoError(t, err)
+}
+
+func readData(t *testing.T, db *store.DB) []byte {
+	reader, err := db.Reader()
+	require.NoError(t, err)
+	actual, err := ioutil.ReadAll(reader)
+	require.NoError(t, err)
+	err = reader.Close()
+	require.NoError(t, err)
+	return actual
 }

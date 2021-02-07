@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/os"
 	"github.com/jacekolszak/deebee/store"
 )
@@ -12,7 +13,7 @@ func main() {
 	dir := os.Dir(tempDir())
 	fmt.Println("Database directory:", dir)
 
-	db, err := store.Open(dir)
+	db, err := deebee.Open(dir)
 	panicIfError(err)
 
 	saveState(db, "Some very long data :)")

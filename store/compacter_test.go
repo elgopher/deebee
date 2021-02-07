@@ -259,3 +259,12 @@ func assertClosed(t *testing.T, channel <-chan struct{}) {
 		assert.FailNow(t, "timeout waiting for close")
 	}
 }
+
+func writeData(t *testing.T, db *store.DB, data []byte) {
+	writer, err := db.Writer()
+	require.NoError(t, err)
+	_, err = writer.Write(data)
+	require.NoError(t, err)
+	err = writer.Close()
+	require.NoError(t, err)
+}
