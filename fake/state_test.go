@@ -93,6 +93,43 @@ func TestState_Revisions(t *testing.T) {
 	})
 }
 
+func TestState_Close(t *testing.T) {
+	t.Run("should close newly created state", func(t *testing.T) {
+		state := fake.State{}
+		// when
+		state.Close()
+		// then
+		assertClosed(t, state.Updates())
+	})
+
+	t.Run("should close state with already consumed updates", func(t *testing.T) {
+		state := fake.State{}
+		state.AddVersion(1)
+		<-state.Updates()
+		// when
+		state.Close()
+		// then
+		assertClosed(t, state.Updates())
+	})
+
+	t.Run("close should be idempotent", func(t *testing.T) {
+		state := fake.State{}
+		state.Close()
+		// when
+		state.Close()
+		// then
+		assertClosed(t, state.Updates())
+	})
+
+	t.Run("close should disable AddVersion", func(t *testing.T) {
+		state := fake.State{}
+		state.Close()
+		assert.Panics(t, func() {
+			state.AddVersion(1)
+		})
+	})
+}
+
 func TestState_ThreadSafety(t *testing.T) {
 	t.Run("test with --race flag should not report data races", func(t *testing.T) {
 		state := &fake.State{}
@@ -110,6 +147,13 @@ func TestState_ThreadSafety(t *testing.T) {
 			}()
 			go state.Revisions()
 			go state.Updates()
+		}
+	})
+
+	t.Run("for state.Close(), test with --race flag should not report data races", func(t *testing.T) {
+		state := &fake.State{}
+		for i := 0; i < 100; i++ {
+			go state.Close()
 		}
 	})
 }
@@ -133,5 +177,14 @@ func assertUpdateReceived(t *testing.T, updates <-chan struct{}) {
 		assert.True(t, ok)
 	case <-time.After(1 * time.Second):
 		assert.FailNow(t, "timeout waiting for update")
+	}
+}
+
+func assertClosed(t *testing.T, channel <-chan struct{}) {
+	select {
+	case _, ok := <-channel:
+		assert.False(t, ok, "channel not closed")
+	case <-time.After(1 * time.Second):
+		assert.FailNow(t, "timeout waiting for close")
 	}
 }

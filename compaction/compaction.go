@@ -14,7 +14,10 @@ func Strategy(options ...StrategyOption) store.Option {
 		if err != nil {
 			return fmt.Errorf("NewCompacter failed: %w", err)
 		}
-		return store.Compacter(compacter.Start)(s)
+		compactState := func(ctx context.Context, state store.State) {
+			go compacter.Start(ctx, state)
+		}
+		return store.Compacter(compactState)(s)
 	}
 }
 
@@ -45,16 +48,19 @@ func NewCompacter(options ...StrategyOption) (*Compacter, error) {
 }
 
 func (c *Compacter) Start(ctx context.Context, state store.State) {
-	go func() {
-		for {
-			select {
-			case <-state.Updates():
-				c.compact(state)
-			case <-time.After(c.interval):
-				c.compact(state)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case _, ok := <-state.Updates():
+			if !ok {
+				return
 			}
+			c.compact(state)
+		case <-time.After(c.interval):
+			c.compact(state)
 		}
-	}()
+	}
 }
 
 func (c *Compacter) compact(state store.State) {

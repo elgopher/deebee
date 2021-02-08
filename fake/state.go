@@ -12,6 +12,7 @@ type State struct {
 
 	updates  chan struct{}
 	versions []*StateVersion
+	closed   bool
 }
 
 func (s *State) Updates() <-chan struct{} {
@@ -42,6 +43,10 @@ func (s *State) Versions() ([]store.StateVersion, error) {
 func (s *State) AddVersion(rev int) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	if s.closed {
+		panic("state closed")
+	}
 
 	version := &StateVersion{revision: rev}
 	version.remove = func() {
@@ -80,6 +85,17 @@ func (s *State) Revisions() []int {
 		revisions = append(revisions, version.revision)
 	}
 	return revisions
+}
+
+func (s *State) Close() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.closed {
+		return
+	}
+	close(s.updatesChannel())
+	s.closed = true
 }
 
 type StateVersion struct {
