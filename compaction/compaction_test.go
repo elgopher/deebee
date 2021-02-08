@@ -112,8 +112,8 @@ func TestCompacter_Start(t *testing.T) {
 		compacter, err := compaction.NewCompacter(compaction.MaxVersions(0), compaction.MinVersions(1))
 		require.NoError(t, err)
 		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
 		// when
-		compacter.Start(context.Background(), state)
 		state.AddVersion(1)
 		state.AddVersion(2)
 		// then
@@ -124,14 +124,70 @@ func TestCompacter_Start(t *testing.T) {
 		compacter, err := compaction.NewCompacter()
 		require.NoError(t, err)
 		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
 		// when
-		compacter.Start(context.Background(), state)
 		state.AddVersion(1)
 		state.AddVersion(2)
 		state.AddVersion(3)
 		// then
 		assert.Eventually(t, stateRevisionsAre(state, 2, 3), time.Second, time.Millisecond)
 	})
+
+	t.Run("should stop once context is cancelled", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter()
+		require.NoError(t, err)
+		state := &fake.State{}
+		ctx, cancel := context.WithCancel(context.Background())
+
+		f := runAsync(func() {
+			compacter.Start(ctx, state)
+		})
+		// when
+		cancel()
+		// then
+		f.waitOrFailAfter(t, time.Second)
+	})
+
+	t.Run("should stop once updates channel is closed", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter()
+		require.NoError(t, err)
+		state := &fake.State{}
+
+		f := runAsync(func() {
+			compacter.Start(context.Background(), state)
+		})
+		// when
+		state.Close()
+		// then
+		f.waitOrFailAfter(t, time.Second)
+	})
+}
+
+func startCompacterAsynchronously(t *testing.T, compacter *compaction.Compacter, state *fake.State) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go compacter.Start(ctx, state)
+	t.Cleanup(cancel)
+}
+
+func runAsync(f func()) async {
+	done := make(chan struct{})
+	go func() {
+		f()
+		close(done)
+	}()
+	return async{done: done}
+}
+
+type async struct {
+	done <-chan struct{}
+}
+
+func (a *async) waitOrFailAfter(t *testing.T, timeout time.Duration) {
+	select {
+	case <-a.done:
+	case <-time.After(timeout):
+		assert.FailNow(t, "timeout waiting for async function to finish")
+	}
 }
 
 func allFilesRemoved(s *store.Store) func() bool {
@@ -154,7 +210,7 @@ func TestMaxVersions(t *testing.T) {
 		compacter, err := compaction.NewCompacter(compaction.MaxVersions(1))
 		require.NoError(t, err)
 		state := &fake.State{}
-		compacter.Start(context.Background(), state)
+		startCompacterAsynchronously(t, compacter, state)
 		// when
 		state.AddVersion(1)
 		state.AddVersion(2)
@@ -166,7 +222,7 @@ func TestMaxVersions(t *testing.T) {
 		compacter, err := compaction.NewCompacter(compaction.MaxVersions(2))
 		require.NoError(t, err)
 		state := &fake.State{}
-		compacter.Start(context.Background(), state)
+		startCompacterAsynchronously(t, compacter, state)
 		// when
 		state.AddVersion(1)
 		state.AddVersion(2)
@@ -192,7 +248,7 @@ func TestMinVersions(t *testing.T) {
 		compacter, err := compaction.NewCompacter(compaction.MinVersions(2))
 		require.NoError(t, err)
 		state := &fake.State{}
-		compacter.Start(context.Background(), state)
+		startCompacterAsynchronously(t, compacter, state)
 		// when
 		state.AddVersion(1)
 		// then
