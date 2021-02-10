@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 
 	"github.com/jacekolszak/deebee"
-	"github.com/jacekolszak/deebee/compaction"
 	"github.com/jacekolszak/deebee/os"
 	"github.com/jacekolszak/deebee/store"
 )
@@ -14,13 +13,7 @@ func main() {
 	dir := os.Dir(tempDir())
 	fmt.Println("Store directory:", dir)
 
-	s, err := deebee.Open(dir,
-		compaction.Strategy(
-			//compaction.MinLatestVersions(2),
-			compaction.MaxVersions(3),
-			//compaction.QuotaGB(20),
-			//compaction.MaxAge(time.Hour),
-		))
+	s, err := deebee.Open(dir)
 	panicIfError(err)
 	defer s.Close()
 
