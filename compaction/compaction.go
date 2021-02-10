@@ -3,6 +3,7 @@ package compaction
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jacekolszak/deebee/store"
@@ -24,17 +25,14 @@ func Strategy(options ...StrategyOption) store.Option {
 type StrategyOption func(*Compacter) error
 
 type Compacter struct {
-	interval         time.Duration
-	chooseForRemoval func([]store.StateVersion) []store.StateVersion
-	minVersions      int
+	interval       time.Duration
+	keepPolicies   []KeepPolicyFunc
+	removePolicies []RemovePolicyFunc
 }
 
 func NewCompacter(options ...StrategyOption) (*Compacter, error) {
 	compacter := &Compacter{
 		interval: time.Minute,
-	}
-	if err := MaxVersions(2)(compacter); err != nil {
-		return nil, err
 	}
 	for _, option := range options {
 		if option == nil {
@@ -64,19 +62,34 @@ func (c *Compacter) Start(ctx context.Context, state store.State) {
 }
 
 func (c *Compacter) compact(state store.State) {
-	versions, _ := state.Versions()
-	versions = c.excludeMinimal(versions)
-	forRemoval := c.chooseForRemoval(versions)
-	for _, v := range forRemoval {
-		_ = v.Remove()
+	versions, err := state.Versions()
+	if err != nil {
+		log.Printf("getting state versions failed: %s", err)
+		return
+	}
+	versionsToRemove := c.removalCandidates(versions)
+	for _, policy := range c.keepPolicies {
+		versionsToKeep := policy(versions)
+		for _, v := range versionsToKeep {
+			delete(versionsToRemove, v)
+		}
+	}
+	for v := range versionsToRemove {
+		if err := v.Remove(); err != nil {
+			log.Printf("remove version failed: %s", err)
+		}
 	}
 }
 
-func (c *Compacter) excludeMinimal(versions []store.StateVersion) []store.StateVersion {
-	if len(versions) < c.minVersions {
-		return nil
+func (c *Compacter) removalCandidates(versions []store.StateVersion) map[store.StateVersion]struct{} {
+	removalCandidates := map[store.StateVersion]struct{}{}
+	for _, policy := range c.removePolicies {
+		candidates := policy(versions)
+		for _, candidate := range candidates {
+			removalCandidates[candidate] = struct{}{}
+		}
 	}
-	return versions[:len(versions)-c.minVersions]
+	return removalCandidates
 }
 
 func MaxVersions(max int) StrategyOption {
@@ -84,22 +97,13 @@ func MaxVersions(max int) StrategyOption {
 		if max < 0 {
 			return fmt.Errorf("negative max in compaction.MaxVersions: %d", max)
 		}
-		compacter.chooseForRemoval = func(versions []store.StateVersion) []store.StateVersion {
+		policy := func(versions []store.StateVersion) []store.StateVersion {
 			if len(versions) <= max {
 				return nil
 			}
 			return versions[:len(versions)-max]
 		}
-		return nil
-	}
-}
-
-func MinVersions(min int) StrategyOption {
-	return func(compacter *Compacter) error {
-		if min < 0 {
-			return fmt.Errorf("negative max in compaction.MinVersions: %d", min)
-		}
-		compacter.minVersions = min
+		compacter.removePolicies = append(compacter.removePolicies, policy)
 		return nil
 	}
 }
@@ -113,6 +117,37 @@ func Interval(i time.Duration) StrategyOption {
 			return fmt.Errorf("zero interval in compaction.Interval")
 		}
 		compacter.interval = i
+		return nil
+	}
+}
+
+func KeepLatestVersions(min int) StrategyOption {
+	return func(compacter *Compacter) error {
+		if min < 0 {
+			return fmt.Errorf("negative max in compaction.MinVersions: %d", min)
+		}
+		policy := func(versions []store.StateVersion) []store.StateVersion {
+			return versions[len(versions)-min:]
+		}
+		compacter.keepPolicies = append(compacter.keepPolicies, policy)
+		return nil
+	}
+}
+
+type RemovePolicyFunc func([]store.StateVersion) []store.StateVersion
+
+func RemovePolicy(policy RemovePolicyFunc) StrategyOption {
+	return func(compacter *Compacter) error {
+		compacter.removePolicies = append(compacter.removePolicies, policy)
+		return nil
+	}
+}
+
+type KeepPolicyFunc func([]store.StateVersion) []store.StateVersion
+
+func KeepPolicy(policy KeepPolicyFunc) StrategyOption {
+	return func(compacter *Compacter) error {
+		compacter.keepPolicies = append(compacter.keepPolicies, policy)
 		return nil
 	}
 }

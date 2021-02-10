@@ -23,7 +23,7 @@ func TestStrategy(t *testing.T) {
 	})
 
 	t.Run("should eventually remove all files", func(t *testing.T) {
-		s := openStore(t, compaction.Strategy(compaction.MaxVersions(0), compaction.MinVersions(0)))
+		s := openStore(t, compaction.Strategy(compaction.MaxVersions(0), compaction.KeepLatestVersions(0)))
 		defer s.Close()
 		storetest.WriteData(t, s, []byte("data"))
 		assert.Eventually(t, allFilesRemoved(s), time.Second, time.Millisecond)
@@ -39,13 +39,23 @@ func TestStrategy(t *testing.T) {
 		s := openStoreWithDir(t, dir,
 			compaction.Strategy(
 				compaction.MaxVersions(0),
-				compaction.MinVersions(0),
+				compaction.KeepLatestVersions(0),
 				compaction.Interval(time.Millisecond),
 			))
 		defer s.Close()
 		storetest.WriteData(t, s, []byte("data"))
 		assert.Eventually(t, allFilesRemoved(s), time.Second, time.Millisecond)
 	})
+}
+
+func openStore(t *testing.T, options ...store.Option) *store.Store {
+	return openStoreWithDir(t, fake.ExistingDir(), options...)
+}
+
+func openStoreWithDir(t *testing.T, dir store.Dir, options ...store.Option) *store.Store {
+	s, err := store.Open(dir, options...)
+	require.NoError(t, err)
+	return s
 }
 
 func TestNewCompacter(t *testing.T) {
@@ -108,31 +118,6 @@ func TestNewCompacter(t *testing.T) {
 }
 
 func TestCompacter_Start(t *testing.T) {
-	t.Run("should remove one state when two states were stored and MaxVersions is 0 and MinVersion is 1", func(t *testing.T) {
-		compacter, err := compaction.NewCompacter(compaction.MaxVersions(0), compaction.MinVersions(1))
-		require.NoError(t, err)
-		state := &fake.State{}
-		startCompacterAsynchronously(t, compacter, state)
-		// when
-		state.AddVersion(1)
-		state.AddVersion(2)
-		// then
-		assert.Eventually(t, stateRevisionsAre(state, 2), time.Second, time.Millisecond)
-	})
-
-	t.Run("should preserve 2 last updates by default", func(t *testing.T) {
-		compacter, err := compaction.NewCompacter()
-		require.NoError(t, err)
-		state := &fake.State{}
-		startCompacterAsynchronously(t, compacter, state)
-		// when
-		state.AddVersion(1)
-		state.AddVersion(2)
-		state.AddVersion(3)
-		// then
-		assert.Eventually(t, stateRevisionsAre(state, 2, 3), time.Second, time.Millisecond)
-	})
-
 	t.Run("should stop once context is cancelled", func(t *testing.T) {
 		compacter, err := compaction.NewCompacter()
 		require.NoError(t, err)
@@ -161,12 +146,6 @@ func TestCompacter_Start(t *testing.T) {
 		// then
 		f.waitOrFailAfter(t, time.Second)
 	})
-}
-
-func startCompacterAsynchronously(t *testing.T, compacter *compaction.Compacter, state *fake.State) {
-	ctx, cancel := context.WithCancel(context.Background())
-	go compacter.Start(ctx, state)
-	t.Cleanup(cancel)
 }
 
 func runAsync(f func()) async {
@@ -198,6 +177,136 @@ func allFilesRemoved(s *store.Store) func() bool {
 		}
 		return store.IsDataNotFound(err)
 	}
+}
+
+func stateRevisionsAre(s *fake.State, expected ...int) func() bool {
+	return func() bool {
+		return assert.ObjectsAreEqual(expected, s.Revisions())
+	}
+}
+
+func TestInterval(t *testing.T) {
+	t.Run("negative interval returns error", func(t *testing.T) {
+		_, err := compaction.NewCompacter(compaction.Interval(-1))
+		assert.Error(t, err)
+	})
+
+	t.Run("zero interval returns error", func(t *testing.T) {
+		_, err := compaction.NewCompacter(compaction.Interval(0))
+		assert.Error(t, err)
+	})
+}
+
+func removeSpecificRevision(revision int) compaction.RemovePolicyFunc {
+	return func(versions []store.StateVersion) []store.StateVersion {
+		for _, v := range versions {
+			if v.Revision() == revision {
+				return []store.StateVersion{v}
+			}
+		}
+		return nil
+	}
+}
+
+func TestRemovePolicy(t *testing.T) {
+	t.Run("should remove versions", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter(compaction.RemovePolicy(removeSpecificRevision(3)))
+		require.NoError(t, err)
+		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		state.AddVersion(3)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 1, 2), time.Second, time.Millisecond)
+	})
+
+	t.Run("should use two policies", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter(compaction.RemovePolicy(removeSpecificRevision(1)), compaction.RemovePolicy(removeSpecificRevision(3)))
+		require.NoError(t, err)
+		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		state.AddVersion(3)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 2), time.Second, time.Millisecond)
+	})
+}
+
+func startCompacterAsynchronously(t *testing.T, compacter *compaction.Compacter, state *fake.State) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go compacter.Start(ctx, state)
+	t.Cleanup(cancel)
+}
+
+func keepSpecificRevision(revision int) compaction.KeepPolicyFunc {
+	return func(versions []store.StateVersion) []store.StateVersion {
+		for _, v := range versions {
+			if v.Revision() == revision {
+				return []store.StateVersion{v}
+			}
+		}
+		return nil
+	}
+}
+
+func removeAll(versions []store.StateVersion) []store.StateVersion {
+	return versions
+}
+
+func TestKeepPolicy(t *testing.T) {
+	t.Run("should keep versions even if remove policy wants to remove them", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter(
+			compaction.RemovePolicy(removeAll),
+			compaction.KeepPolicy(keepSpecificRevision(1)),
+		)
+		require.NoError(t, err)
+		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 1), time.Second, time.Millisecond)
+	})
+
+	t.Run("should keep versions using multiple keep policies", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter(
+			compaction.RemovePolicy(removeAll),
+			compaction.KeepPolicy(keepSpecificRevision(1)), compaction.KeepPolicy(keepSpecificRevision(2)),
+		)
+		require.NoError(t, err)
+		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		state.AddVersion(3)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 1, 2), time.Second, time.Millisecond)
+	})
+
+	t.Run("keep should be applied to all versions", func(t *testing.T) {
+		keepLatest := func(versions []store.StateVersion) []store.StateVersion {
+			return versions[len(versions)-1:]
+		}
+		compacter, err := compaction.NewCompacter(
+			compaction.RemovePolicy(removeSpecificRevision(2)),
+			compaction.KeepPolicy(keepLatest),
+		)
+		require.NoError(t, err)
+		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		state.AddVersion(3)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 1, 3), time.Second, time.Millisecond)
+	})
 }
 
 func TestMaxVersions(t *testing.T) {
@@ -232,48 +341,45 @@ func TestMaxVersions(t *testing.T) {
 	})
 }
 
-func stateRevisionsAre(s *fake.State, expected ...int) func() bool {
-	return func() bool {
-		return assert.ObjectsAreEqual(expected, s.Revisions())
-	}
-}
-
-func TestMinVersions(t *testing.T) {
-	t.Run("negative min returns error", func(t *testing.T) {
-		_, err := compaction.NewCompacter(compaction.MinVersions(-1))
+func TestKeepLatestVersions(t *testing.T) {
+	t.Run("negative returns error", func(t *testing.T) {
+		_, err := compaction.NewCompacter(compaction.KeepLatestVersions(-1))
 		assert.Error(t, err)
 	})
 
-	t.Run("should preserve state when number of versions smaller than MinVersions", func(t *testing.T) {
-		compacter, err := compaction.NewCompacter(compaction.MinVersions(2))
+	t.Run("should not keep anything", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter(compaction.KeepLatestVersions(0), compaction.RemovePolicy(removeAll))
 		require.NoError(t, err)
 		state := &fake.State{}
 		startCompacterAsynchronously(t, compacter, state)
 		// when
 		state.AddVersion(1)
 		// then
-		assert.Eventually(t, stateRevisionsAre(state, 1), time.Second, time.Millisecond)
-	})
-}
-
-func TestInterval(t *testing.T) {
-	t.Run("negative interval returns error", func(t *testing.T) {
-		_, err := compaction.NewCompacter(compaction.Interval(-1))
-		assert.Error(t, err)
+		assert.Eventually(t, stateRevisionsAre(state), time.Second, time.Millisecond)
 	})
 
-	t.Run("zero interval returns error", func(t *testing.T) {
-		_, err := compaction.NewCompacter(compaction.Interval(0))
-		assert.Error(t, err)
+	t.Run("should keep latest version", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter(compaction.KeepLatestVersions(1), compaction.RemovePolicy(removeAll))
+		require.NoError(t, err)
+		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 2), time.Second, time.Millisecond)
 	})
-}
 
-func openStore(t *testing.T, options ...store.Option) *store.Store {
-	return openStoreWithDir(t, fake.ExistingDir(), options...)
-}
-
-func openStoreWithDir(t *testing.T, dir store.Dir, options ...store.Option) *store.Store {
-	s, err := store.Open(dir, options...)
-	require.NoError(t, err)
-	return s
+	t.Run("should keep two latest versions", func(t *testing.T) {
+		compacter, err := compaction.NewCompacter(compaction.KeepLatestVersions(2), compaction.RemovePolicy(removeAll))
+		require.NoError(t, err)
+		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
+		// when
+		state.AddVersion(1)
+		state.AddVersion(2)
+		state.AddVersion(3)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 2, 3), time.Second, time.Millisecond)
+	})
 }
