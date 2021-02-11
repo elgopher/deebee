@@ -8,6 +8,7 @@ import (
 	"github.com/jacekolszak/deebee/os"
 )
 
+// This program shows how to change compaction strategy.
 func main() {
 	dir := os.Dir(tempDir())
 
@@ -19,7 +20,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer s.Close()
+
+	s.Close()
 }
 
 func tempDir() string {
