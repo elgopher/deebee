@@ -195,11 +195,11 @@ func TestIntegrityChecker(t *testing.T) {
 //  Does not check integrity at all
 type nullIntegrityChecker struct{}
 
-func (c *nullIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum store.ReadChecksum) io.ReadCloser {
+func (c *nullIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) io.ReadCloser {
 	return reader
 }
 
-func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum store.WriteChecksum) io.WriteCloser {
+func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) io.WriteCloser {
 	return writer
 }
 

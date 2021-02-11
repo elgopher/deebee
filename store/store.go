@@ -74,9 +74,9 @@ type WriteChecksum func(algorithm string, sum []byte) error
 
 type DataIntegrityChecker interface {
 	// Should calculate checksum and compare it with checksum read using readChecksum function on Close
-	DecorateReader(reader io.ReadCloser, name string, readChecksum ReadChecksum) io.ReadCloser
+	DecorateReader(reader io.ReadCloser, readChecksum ReadChecksum) io.ReadCloser
 	// Should calculate checksum and save it using writeChecksum on Close
-	DecorateWriter(writer io.WriteCloser, name string, writeChecksum WriteChecksum) io.WriteCloser
+	DecorateWriter(writer io.WriteCloser, writeChecksum WriteChecksum) io.WriteCloser
 }
 
 // Returns Writer for new version of state
@@ -90,7 +90,7 @@ func (s *Store) Writer() (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.dataIntegrityChecker.DecorateWriter(writer, name, s.writeChecksum(name)), nil
+	return s.dataIntegrityChecker.DecorateWriter(writer, s.writeChecksum(name)), nil
 }
 
 func (s *Store) nextVersionFilename(stateDir Dir) (string, error) {
@@ -117,7 +117,7 @@ func (s *Store) Reader() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.dataIntegrityChecker.DecorateReader(reader, file, s.readChecksum(file)), nil
+	return s.dataIntegrityChecker.DecorateReader(reader, s.readChecksum(file)), nil
 }
 
 func (s *Store) setDataIntegrityChecker(checker DataIntegrityChecker) error {
@@ -135,11 +135,11 @@ func (s *Store) useDefaultDataIntegrityCheckerIfNotSet() error {
 
 type noDataIntegrityCheck struct{}
 
-func (n noDataIntegrityCheck) DecorateReader(reader io.ReadCloser, name string, readChecksum ReadChecksum) io.ReadCloser {
+func (n noDataIntegrityCheck) DecorateReader(reader io.ReadCloser, _ ReadChecksum) io.ReadCloser {
 	return reader
 }
 
-func (n noDataIntegrityCheck) DecorateWriter(writer io.WriteCloser, name string, writeChecksum WriteChecksum) io.WriteCloser {
+func (n noDataIntegrityCheck) DecorateWriter(writer io.WriteCloser, _ WriteChecksum) io.WriteCloser {
 	return writer
 }
 
@@ -213,7 +213,7 @@ func (s *Store) verifyChecksum(dir Dir, file filename) error {
 	if err != nil {
 		return err
 	}
-	reader := s.dataIntegrityChecker.DecorateReader(fileReader, file.name, s.readChecksum(file.name))
+	reader := s.dataIntegrityChecker.DecorateReader(fileReader, s.readChecksum(file.name))
 	if err := readAll(reader); err != nil {
 		_ = reader.Close()
 		return err
