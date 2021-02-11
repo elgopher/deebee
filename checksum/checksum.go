@@ -2,6 +2,7 @@ package checksum
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -52,21 +53,19 @@ type DataIntegrityChecker struct {
 	algorithm ChecksumAlgorithm
 }
 
-func (c *DataIntegrityChecker) DecorateReader(reader io.ReadCloser, name string, readChecksum store.ReadChecksum) io.ReadCloser {
+func (c *DataIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) io.ReadCloser {
 	return &checksumReader{
 		reader:       reader,
 		sum:          c.algorithm.NewSum(),
-		name:         name,
 		algorithm:    c.algorithm.Name(),
 		readChecksum: readChecksum,
 	}
 }
 
-func (c *DataIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string, writeChecksum store.WriteChecksum) io.WriteCloser {
+func (c *DataIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) io.WriteCloser {
 	return &checksumWriter{
 		writer:        writer,
 		sum:           c.algorithm.NewSum(),
-		name:          name,
 		algorithm:     c.algorithm.Name(),
 		writeChecksum: writeChecksum,
 	}
@@ -74,7 +73,6 @@ func (c *DataIntegrityChecker) DecorateWriter(writer io.WriteCloser, name string
 
 type checksumReader struct {
 	reader       io.ReadCloser
-	name         string
 	sum          Sum
 	algorithm    string
 	readChecksum store.ReadChecksum
@@ -98,14 +96,13 @@ func (c *checksumReader) Close() error {
 		return err
 	}
 	if !bytes.Equal(sumBytes, expectedSum) {
-		return fmt.Errorf("checksum mismatch for file %s", c.name)
+		return errors.New("checksum mismatch")
 	}
 	return c.reader.Close()
 }
 
 type checksumWriter struct {
 	writer        io.WriteCloser
-	name          string
 	sum           Sum
 	algorithm     string
 	writeChecksum store.WriteChecksum
