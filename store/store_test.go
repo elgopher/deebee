@@ -7,8 +7,8 @@ import (
 
 	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
+	"github.com/jacekolszak/deebee/internal/storetest"
 	"github.com/jacekolszak/deebee/store"
-	"github.com/jacekolszak/deebee/storetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
