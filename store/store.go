@@ -47,7 +47,15 @@ type Option func(*Store) error
 
 func IntegrityChecker(checker DataIntegrityChecker) Option {
 	return func(s *Store) error {
-		return s.setDataIntegrityChecker(checker)
+		s.dataIntegrityChecker = checker
+		return nil
+	}
+}
+
+func NoDataIntegrityCheck() Option {
+	return func(s *Store) error {
+		s.dataIntegrityChecker = noDataIntegrityCheck{}
+		return nil
 	}
 }
 
@@ -68,8 +76,8 @@ type Store struct {
 	state                *state
 	now                  TimeNow
 }
-
 type ReadChecksum func(algorithm string) ([]byte, error)
+
 type WriteChecksum func(algorithm string, sum []byte) error
 
 type DataIntegrityChecker interface {
@@ -118,11 +126,6 @@ func (s *Store) Reader() (io.ReadCloser, error) {
 		return nil, err
 	}
 	return s.dataIntegrityChecker.DecorateReader(reader, s.readChecksum(file)), nil
-}
-
-func (s *Store) setDataIntegrityChecker(checker DataIntegrityChecker) error {
-	s.dataIntegrityChecker = checker
-	return nil
 }
 
 func (s *Store) useDefaultDataIntegrityCheckerIfNotSet() error {

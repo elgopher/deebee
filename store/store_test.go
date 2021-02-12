@@ -180,26 +180,60 @@ func TestReadAfterWrite(t *testing.T) {
 func TestIntegrityChecker(t *testing.T) {
 	t.Run("should use custom DataIntegrityChecker", func(t *testing.T) {
 		dir := fake.ExistingDir()
-		s, err := store.Open(dir, store.IntegrityChecker(&nullIntegrityChecker{}))
+		s, err := store.Open(dir, store.IntegrityChecker(&failingIntegrityChecker{}))
 		require.NoError(t, err)
-		notExpected := []byte("data")
-		storetest.WriteData(t, s, notExpected)
-		// when
-		corruptAllFiles(dir)
-		// then
-		data := storetest.ReadData(t, s)
-		assert.NotEqual(t, notExpected, data)
+		storetest.WriteData(t, s, []byte("data"))
+		_, err = s.Reader()
+		assert.Error(t, err)
 	})
+
+	tests := map[string]struct {
+		OpenStore func(dir store.Dir) (*store.Store, error)
+	}{
+		"by default should not check data integrity at all": {
+			OpenStore: func(dir store.Dir) (*store.Store, error) {
+				return store.Open(dir)
+			},
+		},
+		"NoDataIntegrityCheck should not verify data integrity": {
+			OpenStore: func(dir store.Dir) (*store.Store, error) {
+				return store.Open(dir, store.IntegrityChecker(failingIntegrityChecker{}), store.NoDataIntegrityCheck())
+			},
+		},
+	}
+
+	for name, test := range tests {
+
+		t.Run(name, func(t *testing.T) {
+			dir := fake.ExistingDir()
+			s, err := test.OpenStore(dir)
+			require.NoError(t, err)
+			notExpected := []byte("data")
+			storetest.WriteData(t, s, notExpected)
+			// when
+			corruptAllFiles(dir)
+			// then
+			data := storetest.ReadData(t, s)
+			assert.NotEqual(t, notExpected, data)
+		})
+	}
 }
 
-//  Does not check integrity at all
-type nullIntegrityChecker struct{}
+type failingIntegrityChecker struct{}
 
-func (c *nullIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) io.ReadCloser {
-	return reader
+func (f failingIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) io.ReadCloser {
+	return &failingReader{ReadCloser: reader}
 }
 
-func (c *nullIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) io.WriteCloser {
+type failingReader struct {
+	io.ReadCloser
+}
+
+func (f failingReader) Close() error {
+	return errors.New("error")
+}
+
+func (f failingIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) io.WriteCloser {
 	return writer
 }
 
