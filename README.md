@@ -2,6 +2,10 @@
 
 Embedded database in Go for super frequent updates of large data.
 
+# Install
+
+`go get -u github.com/jacekolszak/deebee`
+
 # Project goal
 
 Create a minimalistic database for storing application state. Database should:
