@@ -382,4 +382,17 @@ func TestKeepLatestVersions(t *testing.T) {
 		// then
 		assert.Eventually(t, stateRevisionsAre(state, 2, 3), time.Second, time.Millisecond)
 	})
+
+	t.Run("should keep one latest version when there is only one available but two were requested", func(t *testing.T) {
+		compacter, err :=
+			compaction.NewCompacter(
+				compaction.KeepLatestVersions(2),
+				compaction.Interval(time.Microsecond))
+		state := &fake.State{}
+		startCompacterAsynchronously(t, compacter, state)
+		require.NoError(t, err)
+		state.AddVersion(1)
+		// then
+		assert.Eventually(t, stateRevisionsAre(state, 1), time.Second, time.Millisecond)
+	})
 }
