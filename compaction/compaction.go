@@ -127,6 +127,9 @@ func KeepLatestVersions(min int) StrategyOption {
 			return fmt.Errorf("negative max in compaction.MinVersions: %d", min)
 		}
 		policy := func(versions []store.StateVersion) []store.StateVersion {
+			if len(versions) < min {
+				return versions
+			}
 			return versions[len(versions)-min:]
 		}
 		compacter.keepPolicies = append(compacter.keepPolicies, policy)
