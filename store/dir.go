@@ -18,6 +18,7 @@ type Dir interface {
 	Exists() (bool, error)
 	// ListFiles list files excluding directories
 	ListFiles() ([]string, error)
+	// DeleteFile does not return error when file does not exist
 	DeleteFile(name string) error
 }
 

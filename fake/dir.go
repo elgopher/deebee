@@ -165,7 +165,7 @@ func (f *dir) DeleteFile(name string) error {
 
 	_, found := f.filesByName[name]
 	if !found {
-		return fmt.Errorf("file %s does not exist", name)
+		return nil
 	}
 	delete(f.filesByName, name)
 	return nil

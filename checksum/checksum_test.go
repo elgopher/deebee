@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"testing"
 
 	"github.com/jacekolszak/deebee/checksum"
@@ -29,44 +28,6 @@ func TestIntegrityChecker(t *testing.T) {
 		s, err := store.Open(dir, checksum.IntegrityChecker(optionReturningError))
 		assert.Error(t, err)
 		assert.Nil(t, s)
-	})
-
-	t.Run("should return error error when checksum algorithm has invalid name", func(t *testing.T) {
-		names := []string{"", ".", "-", " ", "A", "Z", ".7z", "a ", " 6"}
-		for _, name := range names {
-			t.Run(name, func(t *testing.T) {
-				algorithm := invalidNameAlgorithm{name: name}
-				s, err := store.Open(fake.ExistingDir(), checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
-				assert.Error(t, err)
-				assert.Nil(t, s)
-			})
-		}
-	})
-
-	t.Run("should accept algorithm with valid name", func(t *testing.T) {
-		names := []string{"a", "z", "0", "9", "2b", "fnv128a"}
-		for _, name := range names {
-			t.Run(name, func(t *testing.T) {
-				algorithm := invalidNameAlgorithm{name: name}
-				s, err := store.Open(fake.ExistingDir(), checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
-				require.NoError(t, err)
-				assert.NotNil(t, s)
-			})
-		}
-	})
-
-	t.Run("should write checksum to a file with an extension having algorithm name", func(t *testing.T) {
-		expectedSum := []byte{1, 2, 3, 4}
-		algorithm := &fixedAlgorithm{sum: expectedSum}
-		dir := fake.ExistingDir()
-		s, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
-		require.NoError(t, err)
-		// when
-		storetest.WriteData(t, s, []byte("data"))
-		// then
-		files := filterFilesWithExtension(dir.Files(), "fixed")
-		require.NotEmpty(t, files)
-		assert.Equal(t, expectedSum, files[0].Data())
 	})
 
 	t.Run("should use checksum algorithm", func(t *testing.T) {
@@ -138,6 +99,39 @@ func TestReadAfterWrite(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, reader)
 	})
+
+	t.Run("during read should use algorithm used at the time of writing", func(t *testing.T) {
+		algorithms := []checksum.ChecksumAlgorithm{
+			checksum.MD5,
+			checksum.CRC32,
+			checksum.CRC64,
+			checksum.SHA512,
+			checksum.FNV64a,
+			checksum.FNV64,
+			checksum.FNV32,
+			checksum.FNV32a,
+			checksum.FNV128,
+			checksum.FNV128a,
+		}
+		for _, algorithm := range algorithms {
+			name := algorithm.Name()
+
+			t.Run(string(name[:]), func(t *testing.T) {
+				dir := fake.ExistingDir()
+				storeWithOldAlgorithm, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(algorithm)))
+				require.NoError(t, err)
+				data := []byte("data")
+				storetest.WriteData(t, storeWithOldAlgorithm, data)
+				require.NoError(t, storeWithOldAlgorithm.Close())
+				//
+				storeWithNewAlgorithm, err := store.Open(dir, checksum.IntegrityChecker(checksum.Algorithm(fixedAlgorithm{})))
+				require.NoError(t, err)
+				actualData := storetest.ReadData(t, storeWithNewAlgorithm)
+				// then
+				assert.Equal(t, data, actualData)
+			})
+		}
+	})
 }
 
 func openStoreWithChecksumIntegrityChecker(t *testing.T, dir store.Dir) *store.Store {
@@ -146,34 +140,12 @@ func openStoreWithChecksumIntegrityChecker(t *testing.T, dir store.Dir) *store.S
 	return s
 }
 
-func filterFilesWithExtension(files []*fake.File, extension string) []*fake.File {
-	var filtered []*fake.File
-	for _, file := range files {
-		if strings.HasSuffix(file.Name(), "."+extension) {
-			filtered = append(filtered, file)
-		}
-	}
-	return filtered
-}
-
-type invalidNameAlgorithm struct {
-	name string
-}
-
-func (i invalidNameAlgorithm) NewSum() checksum.Sum {
-	return nil
-}
-
-func (i invalidNameAlgorithm) Name() string {
-	return i.name
-}
-
 type fixedAlgorithm struct {
 	sum []byte
 }
 
-func (c fixedAlgorithm) Name() string {
-	return "fixed"
+func (c fixedAlgorithm) Name() checksum.AlgorithmName {
+	return [8]byte{1}
 }
 
 func (c fixedAlgorithm) NewSum() checksum.Sum {
