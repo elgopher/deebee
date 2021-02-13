@@ -94,18 +94,24 @@ func (c *Compacter) removalCandidates(versions []store.StateVersion) map[store.S
 
 func MaxVersions(max int) StrategyOption {
 	return func(compacter *Compacter) error {
-		if max < 0 {
-			return fmt.Errorf("negative max in compaction.MaxVersions: %d", max)
+		policy, err := maxVersions(max)
+		if err != nil {
+			return err
 		}
-		policy := func(versions []store.StateVersion) []store.StateVersion {
-			if len(versions) <= max {
-				return nil
-			}
-			return versions[:len(versions)-max]
-		}
-		compacter.removePolicies = append(compacter.removePolicies, policy)
-		return nil
+		return RemovePolicy(policy)(compacter)
 	}
+}
+
+func maxVersions(max int) (RemovePolicyFunc, error) {
+	if max < 0 {
+		return nil, fmt.Errorf("negative max in compaction.MaxVersions: %d", max)
+	}
+	return func(versions []store.StateVersion) []store.StateVersion {
+		if len(versions) <= max {
+			return nil
+		}
+		return versions[:len(versions)-max]
+	}, nil
 }
 
 func Interval(i time.Duration) StrategyOption {
@@ -123,18 +129,24 @@ func Interval(i time.Duration) StrategyOption {
 
 func KeepLatestVersions(min int) StrategyOption {
 	return func(compacter *Compacter) error {
-		if min < 0 {
-			return fmt.Errorf("negative max in compaction.MinVersions: %d", min)
+		policy, err := keepLatestVersions(min)
+		if err != nil {
+			return err
 		}
-		policy := func(versions []store.StateVersion) []store.StateVersion {
-			if len(versions) < min {
-				return versions
-			}
-			return versions[len(versions)-min:]
-		}
-		compacter.keepPolicies = append(compacter.keepPolicies, policy)
-		return nil
+		return KeepPolicy(policy)(compacter)
 	}
+}
+
+func keepLatestVersions(min int) (KeepPolicyFunc, error) {
+	if min < 0 {
+		return nil, fmt.Errorf("negative max in compaction.MinVersions: %d", min)
+	}
+	return func(versions []store.StateVersion) []store.StateVersion {
+		if len(versions) < min {
+			return versions
+		}
+		return versions[len(versions)-min:]
+	}, nil
 }
 
 type RemovePolicyFunc func([]store.StateVersion) []store.StateVersion
