@@ -338,12 +338,6 @@ func TestDir_DeleteFile(t *testing.T, dirs Dirs) {
 	for dirType, newDir := range dirs {
 		t.Run(dirType, func(t *testing.T) {
 
-			t.Run("should return error when file does not exists", func(t *testing.T) {
-				dir := newDir(t)
-				err := dir.DeleteFile("missing")
-				assert.Error(t, err)
-			})
-
 			t.Run("should delete file", func(t *testing.T) {
 				dir := newDir(t)
 				const file = "file"
@@ -355,6 +349,12 @@ func TestDir_DeleteFile(t *testing.T, dirs Dirs) {
 				files, err := dir.ListFiles()
 				require.NoError(t, err)
 				assert.Empty(t, files)
+			})
+
+			t.Run("should not return error when file does not exists", func(t *testing.T) {
+				dir := newDir(t)
+				err := dir.DeleteFile("missing")
+				assert.NoError(t, err)
 			})
 		})
 	}

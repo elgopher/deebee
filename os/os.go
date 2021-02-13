@@ -66,5 +66,9 @@ func (o Dir) ListFiles() ([]string, error) {
 }
 
 func (o Dir) DeleteFile(name string) error {
-	return os.Remove(o.path(name))
+	err := os.Remove(o.path(name))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }

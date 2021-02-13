@@ -221,8 +221,8 @@ func TestIntegrityChecker(t *testing.T) {
 
 type failingIntegrityChecker struct{}
 
-func (f failingIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) io.ReadCloser {
-	return &failingReader{ReadCloser: reader}
+func (f failingIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) (io.ReadCloser, error) {
+	return &failingReader{ReadCloser: reader}, nil
 }
 
 type failingReader struct {
@@ -233,8 +233,8 @@ func (f failingReader) Close() error {
 	return errors.New("error")
 }
 
-func (f failingIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) io.WriteCloser {
-	return writer
+func (f failingIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) (io.WriteCloser, error) {
+	return writer, nil
 }
 
 func openStore(t *testing.T, dir store.Dir) *store.Store {

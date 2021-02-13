@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"regexp"
 
 	"github.com/jacekolszak/deebee/store"
 )
@@ -26,13 +25,8 @@ func IntegrityChecker(options ...IntegrityCheckerOption) store.Option {
 
 type IntegrityCheckerOption func(*DataIntegrityChecker) error
 
-var algorithmNameRegex = regexp.MustCompile("^[a-z0-9]+$")
-
 func Algorithm(algorithm ChecksumAlgorithm) IntegrityCheckerOption {
 	return func(checker *DataIntegrityChecker) error {
-		if !algorithmNameRegex.MatchString(algorithm.Name()) {
-			return fmt.Errorf("invalid algorithm name: %s", algorithm.Name())
-		}
 		checker.algorithm = algorithm
 		return nil
 	}
@@ -40,8 +34,7 @@ func Algorithm(algorithm ChecksumAlgorithm) IntegrityCheckerOption {
 
 type ChecksumAlgorithm interface {
 	NewSum() Sum
-	// Name must be digits and/or lower-case alphabetical characters
-	Name() string
+	Name() AlgorithmName
 }
 
 type Sum interface {
@@ -53,29 +46,44 @@ type DataIntegrityChecker struct {
 	algorithm ChecksumAlgorithm
 }
 
-func (c *DataIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) io.ReadCloser {
-	return &checksumReader{
-		reader:       reader,
-		sum:          c.algorithm.NewSum(),
-		algorithm:    c.algorithm.Name(),
-		readChecksum: readChecksum,
+func (c *DataIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) (io.ReadCloser, error) {
+	algoAndSum, err := readChecksum()
+	if err != nil {
+		return nil, fmt.Errorf("reading checksum failed: %w", err)
 	}
+	name, expectedSum := decode(algoAndSum)
+	sum := c.sumFromAlgorithmNameOrDefault(name)
+
+	return &checksumReader{
+		reader:      reader,
+		sum:         sum,
+		expectedSum: expectedSum,
+	}, nil
 }
 
-func (c *DataIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) io.WriteCloser {
+func (c *DataIntegrityChecker) sumFromAlgorithmNameOrDefault(name AlgorithmName) Sum {
+	var sum Sum
+	if algo, found := algorithmsByName[name]; found {
+		sum = algo.NewSum()
+	} else {
+		sum = c.algorithm.NewSum()
+	}
+	return sum
+}
+
+func (c *DataIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) (io.WriteCloser, error) {
 	return &checksumWriter{
 		writer:        writer,
 		sum:           c.algorithm.NewSum(),
-		algorithm:     c.algorithm.Name(),
+		algorithmName: c.algorithm.Name(),
 		writeChecksum: writeChecksum,
-	}
+	}, nil
 }
 
 type checksumReader struct {
-	reader       io.ReadCloser
-	sum          Sum
-	algorithm    string
-	readChecksum store.ReadChecksum
+	reader      io.ReadCloser
+	sum         Sum
+	expectedSum []byte
 }
 
 func (c *checksumReader) Read(p []byte) (int, error) {
@@ -91,11 +99,7 @@ func (c *checksumReader) Read(p []byte) (int, error) {
 
 func (c *checksumReader) Close() error {
 	sumBytes := c.sum.Marshal()
-	expectedSum, err := c.readChecksum(c.algorithm)
-	if err != nil {
-		return err
-	}
-	if !bytes.Equal(sumBytes, expectedSum) {
+	if !bytes.Equal(sumBytes, c.expectedSum) {
 		return errors.New("checksum mismatch")
 	}
 	return c.reader.Close()
@@ -104,7 +108,7 @@ func (c *checksumReader) Close() error {
 type checksumWriter struct {
 	writer        io.WriteCloser
 	sum           Sum
-	algorithm     string
+	algorithmName AlgorithmName
 	writeChecksum store.WriteChecksum
 }
 
@@ -117,7 +121,8 @@ func (c *checksumWriter) Write(p []byte) (n int, err error) {
 
 func (c *checksumWriter) Close() error {
 	sum := c.sum.Marshal()
-	err := c.writeChecksum(c.algorithm, sum)
+	algoAndSum := encode(c.algorithmName, sum)
+	err := c.writeChecksum(algoAndSum)
 	if err != nil {
 		_ = c.writer.Close()
 		return err

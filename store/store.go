@@ -76,15 +76,15 @@ type Store struct {
 	state                *state
 	now                  TimeNow
 }
-type ReadChecksum func(algorithm string) ([]byte, error)
+type ReadChecksum func() ([]byte, error)
 
-type WriteChecksum func(algorithm string, sum []byte) error
+type WriteChecksum func(sum []byte) error
 
 type DataIntegrityChecker interface {
 	// Should calculate checksum and compare it with checksum read using readChecksum function on Close
-	DecorateReader(reader io.ReadCloser, readChecksum ReadChecksum) io.ReadCloser
+	DecorateReader(reader io.ReadCloser, readChecksum ReadChecksum) (io.ReadCloser, error)
 	// Should calculate checksum and save it using writeChecksum on Close
-	DecorateWriter(writer io.WriteCloser, writeChecksum WriteChecksum) io.WriteCloser
+	DecorateWriter(writer io.WriteCloser, writeChecksum WriteChecksum) (io.WriteCloser, error)
 }
 
 // Returns Writer for new version of state
@@ -98,7 +98,7 @@ func (s *Store) Writer() (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.dataIntegrityChecker.DecorateWriter(writer, s.writeChecksum(name)), nil
+	return s.dataIntegrityChecker.DecorateWriter(writer, s.writeChecksum(name))
 }
 
 func (s *Store) nextVersionFilename(stateDir Dir) (string, error) {
@@ -125,7 +125,7 @@ func (s *Store) Reader() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.dataIntegrityChecker.DecorateReader(reader, s.readChecksum(file)), nil
+	return s.dataIntegrityChecker.DecorateReader(reader, s.readChecksum(file))
 }
 
 func (s *Store) useDefaultDataIntegrityCheckerIfNotSet() error {
@@ -138,12 +138,12 @@ func (s *Store) useDefaultDataIntegrityCheckerIfNotSet() error {
 
 type noDataIntegrityCheck struct{}
 
-func (n noDataIntegrityCheck) DecorateReader(reader io.ReadCloser, _ ReadChecksum) io.ReadCloser {
-	return reader
+func (n noDataIntegrityCheck) DecorateReader(reader io.ReadCloser, _ ReadChecksum) (io.ReadCloser, error) {
+	return reader, nil
 }
 
-func (n noDataIntegrityCheck) DecorateWriter(writer io.WriteCloser, _ WriteChecksum) io.WriteCloser {
-	return writer
+func (n noDataIntegrityCheck) DecorateWriter(writer io.WriteCloser, _ WriteChecksum) (io.WriteCloser, error) {
+	return writer, nil
 }
 
 func (s *Store) useDefaultCompacterIfNotSet() {
@@ -165,9 +165,13 @@ func (s *Store) Close() error {
 }
 
 func (s *Store) writeChecksum(name string) WriteChecksum {
-	return func(algorithm string, sum []byte) error {
-		return writeFile(s.dir, name+"."+algorithm, sum)
+	return func(sum []byte) error {
+		return writeFile(s.dir, checksumFilename(name), sum)
 	}
+}
+
+func checksumFilename(name string) string {
+	return name + ".checksum"
 }
 
 func writeFile(dir Dir, name string, payload []byte) error {
@@ -184,8 +188,8 @@ func writeFile(dir Dir, name string, payload []byte) error {
 }
 
 func (s *Store) readChecksum(name string) ReadChecksum {
-	return func(algorithm string) ([]byte, error) {
-		reader, err := s.dir.FileReader(name + "." + algorithm)
+	return func() ([]byte, error) {
+		reader, err := s.dir.FileReader(checksumFilename(name))
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +220,10 @@ func (s *Store) verifyChecksum(dir Dir, file filename) error {
 	if err != nil {
 		return err
 	}
-	reader := s.dataIntegrityChecker.DecorateReader(fileReader, s.readChecksum(file.name))
+	reader, err := s.dataIntegrityChecker.DecorateReader(fileReader, s.readChecksum(file.name))
+	if err != nil {
+		return err
+	}
 	if err := readAll(reader); err != nil {
 		_ = reader.Close()
 		return err

@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -73,7 +74,13 @@ type stateVersion struct {
 }
 
 func (s *stateVersion) Remove() error {
-	return s.dir.DeleteFile(s.dataFile.name)
+	if err := s.dir.DeleteFile(s.dataFile.name); err != nil {
+		return fmt.Errorf("deleting data file failed: %w", err)
+	}
+	if err := s.dir.DeleteFile(checksumFilename(s.dataFile.name)); err != nil {
+		return fmt.Errorf("deleting checksum file failed: %w", err)
+	}
+	return nil
 }
 
 func (s *stateVersion) Revision() int {
