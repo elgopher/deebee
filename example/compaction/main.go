@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 
 	"github.com/jacekolszak/deebee"
@@ -26,5 +27,6 @@ func tempDir() string {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Store directory:", dir)
 	return dir
 }
