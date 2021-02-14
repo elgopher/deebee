@@ -9,17 +9,28 @@ import (
 )
 
 func main() {
-	dir := tempDir()
-	fmt.Println("Store directory:", dir)
-
-	s, err := deebee.Open(dir)
+	s, err := deebee.Open(tempDir())
 	panicIfError(err)
 	defer s.Close()
 
 	saveState(s, "Some very long data :)")
 	saveState(s, "Updated data even longer than before :)")
+
 	data := readState(s)
 	fmt.Println("Data read from disk:", data)
+}
+
+func tempDir() string {
+	dir, err := ioutil.TempDir("", "deebee")
+	panicIfError(err)
+	fmt.Println("Store directory:", dir)
+	return dir
+}
+
+func panicIfError(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
 func saveState(s *store.Store, data string) {
@@ -44,16 +55,4 @@ func readState(s *store.Store) string {
 	data, err := ioutil.ReadAll(reader)
 	panicIfError(err)
 	return string(data)
-}
-
-func panicIfError(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-func tempDir() string {
-	dir, err := ioutil.TempDir("", "deebee")
-	panicIfError(err)
-	return dir
 }
