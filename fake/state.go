@@ -41,6 +41,10 @@ func (s *State) Versions() ([]store.StateVersion, error) {
 }
 
 func (s *State) AddVersion(rev int) {
+	s.AddVersionWithTime(rev, time.Now())
+}
+
+func (s *State) AddVersionWithTime(rev int, t time.Time) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -48,7 +52,7 @@ func (s *State) AddVersion(rev int) {
 		panic("state closed")
 	}
 
-	version := &StateVersion{revision: rev}
+	version := &StateVersion{revision: rev, time: t}
 	version.remove = func() {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
@@ -101,6 +105,7 @@ func (s *State) Close() {
 type StateVersion struct {
 	revision int
 	remove   func()
+	time     time.Time
 }
 
 func (s *StateVersion) Revision() int {
@@ -113,5 +118,5 @@ func (s *StateVersion) Remove() error {
 }
 
 func (s *StateVersion) Time() time.Time {
-	panic("implement me")
+	return s.time
 }
