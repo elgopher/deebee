@@ -10,6 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var time1 = time.Unix(1000000000, 0)
+var time2 = time.Unix(2000000000, 0)
+
 func TestState_Versions(t *testing.T) {
 	t.Run("should return empty versions", func(t *testing.T) {
 		state := &fake.State{}
@@ -25,7 +28,7 @@ func TestState_AddVersion(t *testing.T) {
 		// when
 		state.AddVersion(1)
 		// then
-		assertStateVersions(t, []int{1}, state)
+		assertStateRevisions(t, []int{1}, state)
 		assertUpdateReceived(t, state.Updates())
 	})
 
@@ -36,7 +39,44 @@ func TestState_AddVersion(t *testing.T) {
 		assertUpdateReceived(t, state.Updates())
 		state.AddVersion(2)
 		// then
-		assertStateVersions(t, []int{1, 2}, state)
+		assertStateRevisions(t, []int{1, 2}, state)
+		assertUpdateReceived(t, state.Updates())
+	})
+}
+
+func TestState_AddVersionWithTime(t *testing.T) {
+	t.Run("should add one version", func(t *testing.T) {
+		state := &fake.State{}
+		// when
+		state.AddVersionWithTime(1, time1)
+		// then
+		assertStates(t, []expectedState{
+			{
+				revision: 1,
+				time:     time1,
+			},
+		}, state)
+		assertUpdateReceived(t, state.Updates())
+	})
+
+	t.Run("should add two versions", func(t *testing.T) {
+		state := &fake.State{}
+		expectedStates := []expectedState{
+			{
+				revision: 1,
+				time:     time1,
+			},
+			{
+				revision: 2,
+				time:     time2,
+			},
+		}
+
+		// when
+		state.AddVersionWithTime(expectedStates[0].revision, expectedStates[0].time)
+		state.AddVersionWithTime(expectedStates[1].revision, expectedStates[1].time)
+		// then
+		assertStates(t, expectedStates, state)
 		assertUpdateReceived(t, state.Updates())
 	})
 }
@@ -52,7 +92,7 @@ func TestStateVersion_Remove(t *testing.T) {
 		err = versions[0].Remove()
 		require.NoError(t, err)
 		// then
-		assertStateVersions(t, []int{}, state)
+		assertStateRevisions(t, []int{}, state)
 	})
 
 	t.Run("should remove one out two", func(t *testing.T) {
@@ -66,7 +106,20 @@ func TestStateVersion_Remove(t *testing.T) {
 		err = versions[0].Remove()
 		require.NoError(t, err)
 		// then
-		assertStateVersions(t, []int{2}, state)
+		assertStateRevisions(t, []int{2}, state)
+	})
+
+	t.Run("should remove version added using AddVersionWithTime", func(t *testing.T) {
+		state := &fake.State{}
+		state.AddVersionWithTime(1, time1)
+		// when
+		versions, err := state.Versions()
+		require.NoError(t, err)
+		require.Len(t, versions, 1)
+		err = versions[0].Remove()
+		require.NoError(t, err)
+		// then
+		assertStateRevisions(t, []int{}, state)
 	})
 }
 
@@ -128,6 +181,14 @@ func TestState_Close(t *testing.T) {
 			state.AddVersion(1)
 		})
 	})
+
+	t.Run("close should disable AddVersionWithTime", func(t *testing.T) {
+		state := fake.State{}
+		state.Close()
+		assert.Panics(t, func() {
+			state.AddVersionWithTime(1, time1)
+		})
+	})
 }
 
 func TestState_ThreadSafety(t *testing.T) {
@@ -135,6 +196,7 @@ func TestState_ThreadSafety(t *testing.T) {
 		state := &fake.State{}
 		for i := 0; i < 100; i++ {
 			go state.AddVersion(i)
+			go state.AddVersionWithTime(i, time1)
 			go func() { _, _ = state.Versions() }()
 			go func() {
 				versions, err := state.Versions()
@@ -142,6 +204,7 @@ func TestState_ThreadSafety(t *testing.T) {
 				if len(versions) > 0 {
 					version := versions[0]
 					version.Revision()
+					version.Time()
 					require.NoError(t, version.Remove())
 				}
 			}()
@@ -158,7 +221,7 @@ func TestState_ThreadSafety(t *testing.T) {
 	})
 }
 
-func assertStateVersions(t *testing.T, expectedRevisions []int, s store.State) {
+func assertStateRevisions(t *testing.T, expectedRevisions []int, s store.State) {
 	versions, err := s.Versions()
 	require.NoError(t, err)
 	assert.Len(t, versions, len(expectedRevisions))
@@ -169,6 +232,21 @@ func assertStateVersions(t *testing.T, expectedRevisions []int, s store.State) {
 
 func assertRevision(t *testing.T, expectedRevision int, version store.StateVersion) {
 	assert.Equal(t, expectedRevision, version.Revision())
+}
+
+type expectedState struct {
+	revision int
+	time     time.Time
+}
+
+func assertStates(t *testing.T, expectedStates []expectedState, s store.State) {
+	versions, err := s.Versions()
+	require.NoError(t, err)
+	assert.Len(t, versions, len(expectedStates))
+	for i, expected := range expectedStates {
+		assert.Equal(t, expected.time, versions[i].Time())
+		assert.Equal(t, expected.revision, versions[i].Revision())
+	}
 }
 
 func assertUpdateReceived(t *testing.T, updates <-chan struct{}) {
