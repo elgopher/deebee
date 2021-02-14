@@ -5,14 +5,11 @@ import (
 
 	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/checksum"
-	"github.com/jacekolszak/deebee/os"
 )
 
 // This program shows how to configure different checksum algorithm.
 func main() {
-	dir := os.Dir(tempDir())
-
-	s, err := deebee.Open(dir,
+	s, err := deebee.Open(tempDir(),
 		checksum.IntegrityChecker(
 			checksum.Algorithm(checksum.FNV128a),
 		),

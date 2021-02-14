@@ -5,14 +5,11 @@ import (
 
 	"github.com/jacekolszak/deebee"
 	"github.com/jacekolszak/deebee/compaction"
-	"github.com/jacekolszak/deebee/os"
 )
 
 // This program shows how to change compaction strategy.
 func main() {
-	dir := os.Dir(tempDir())
-
-	s, err := deebee.Open(dir,
+	s, err := deebee.Open(tempDir(),
 		compaction.Strategy(
 			compaction.KeepLatestVersions(2),
 			compaction.MaxVersions(10),

@@ -5,12 +5,11 @@ import (
 	"io/ioutil"
 
 	"github.com/jacekolszak/deebee"
-	"github.com/jacekolszak/deebee/os"
 	"github.com/jacekolszak/deebee/store"
 )
 
 func main() {
-	dir := os.Dir(tempDir())
+	dir := tempDir()
 	fmt.Println("Store directory:", dir)
 
 	s, err := deebee.Open(dir)
