@@ -37,7 +37,7 @@ func saveState(s *store.Store, data string) {
 	writer, err := s.Writer()
 	panicIfError(err)
 
-	_, err = writer.Write([]byte(data))
+	_, err = fmt.Fprintln(writer, data) // DeeBee implements standard io.Writer interface
 	if err != nil {
 		_ = writer.Close()
 		panic(err)
@@ -52,7 +52,7 @@ func readState(s *store.Store) string {
 	panicIfError(err)
 	defer reader.Close()
 
-	data, err := ioutil.ReadAll(reader)
+	data, err := ioutil.ReadAll(reader) // DeeBee implements standard io.Reader interface
 	panicIfError(err)
 	return string(data)
 }
