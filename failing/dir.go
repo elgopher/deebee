@@ -1,3 +1,6 @@
+// (c) 2021 Jacek Olszak
+// This code is licensed under MIT license (see LICENSE for details)
+
 // Package failing provides methods decorating another Dir with errors
 package failing
 
