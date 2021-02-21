@@ -102,7 +102,8 @@ func (s *Store) Writer() (io.WriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.dataIntegrityChecker.DecorateWriter(writer, s.writeChecksum(name))
+	syncWriter := &syncOnCloseWriter{FileWriter: writer}
+	return s.dataIntegrityChecker.DecorateWriter(syncWriter, s.writeChecksum(name))
 }
 
 func (s *Store) nextVersionFilename(stateDir Dir) (string, error) {
@@ -192,6 +193,9 @@ func writeFile(dir Dir, name string, payload []byte) error {
 	if err != nil {
 		_ = writer.Close()
 		return err
+	}
+	if err := writer.Sync(); err != nil {
+		return fmt.Errorf("sync failed: %w", err)
 	}
 	return writer.Close()
 }

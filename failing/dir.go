@@ -45,6 +45,21 @@ func FileWriter(decoratedDir store.Dir) *Dir {
 	return dir
 }
 
+func FileWriterSync(decoratedDir store.Dir) *Dir {
+	dir := DecorateDir(decoratedDir)
+	dir.fileWriter = func(name string) (store.FileWriter, error) {
+		writer, err := decoratedDir.FileWriter(name)
+		if err != nil {
+			return nil, err
+		}
+		return &fileWriterSync{FileWriter: writer}, nil
+	}
+	dir.dir = func(name string) store.Dir {
+		return FileWriterSync(decoratedDir.Dir(name))
+	}
+	return dir
+}
+
 func FileReader(decoratedDir store.Dir) *Dir {
 	dir := DecorateDir(decoratedDir)
 	dir.fileReader = func(name string) (io.ReadCloser, error) {

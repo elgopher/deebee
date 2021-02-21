@@ -205,6 +205,9 @@ func (f *File) Write(p []byte) (n int, err error) {
 }
 
 func (f *File) Sync() error {
+	if f.closed {
+		return fmt.Errorf("file %s is closed", f.name)
+	}
 	f.syncedBytes = f.data.Len()
 	return nil
 }
