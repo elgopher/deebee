@@ -222,6 +222,76 @@ func TestIntegrityChecker(t *testing.T) {
 	}
 }
 
+func TestSync(t *testing.T) {
+	data := []byte("data")
+
+	tests := map[string]func(t *testing.T, dir store.Dir) *store.Store{
+		"no checksum": func(t *testing.T, dir store.Dir) *store.Store {
+			return openStore(t, dir)
+		},
+		"with fixed checksum": func(t *testing.T, dir store.Dir) *store.Store {
+			checker := writeFixedChecksumIntegrityChecker{1, 2, 3, 4}
+			return openStore(t, dir, store.IntegrityChecker(checker))
+		},
+	}
+
+	for name, openStore := range tests {
+		t.Run(name, func(t *testing.T) {
+
+			t.Run("should sync all files", func(t *testing.T) {
+				dir := fake.ExistingDir()
+				s := openStore(t, dir)
+				// when
+				storetest.WriteData(t, s, data)
+				// then
+				for _, file := range dir.Files() {
+					assert.Equal(t, file.Data(), file.SyncedData(), "no all data synced")
+				}
+			})
+
+			t.Run("should return error when sync failed", func(t *testing.T) {
+				dir := failing.FileWriterSync(fake.ExistingDir())
+				s := openStore(t, dir)
+				writer, err := s.Writer()
+				require.NoError(t, err)
+				_, err = writer.Write(data)
+				require.NoError(t, err)
+				// when
+				err = writer.Close()
+				// then
+				assert.Error(t, err)
+			})
+		})
+	}
+}
+
+type writeFixedChecksumIntegrityChecker []byte
+
+func (f writeFixedChecksumIntegrityChecker) DecorateReader(reader io.ReadCloser, _ store.ReadChecksum) (io.ReadCloser, error) {
+	return reader, nil
+}
+
+func (f writeFixedChecksumIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChecksum store.WriteChecksum) (io.WriteCloser, error) {
+	return &writeFixedChecksumWriter{
+		checksum:      f,
+		writeChecksum: writeChecksum,
+		WriteCloser:   writer,
+	}, nil
+}
+
+type writeFixedChecksumWriter struct {
+	checksum []byte
+	io.WriteCloser
+	writeChecksum store.WriteChecksum
+}
+
+func (w writeFixedChecksumWriter) Close() error {
+	if err := w.writeChecksum(w.checksum); err != nil {
+		return err
+	}
+	return w.WriteCloser.Close()
+}
+
 type failingIntegrityChecker struct{}
 
 func (f failingIntegrityChecker) DecorateReader(reader io.ReadCloser, readChecksum store.ReadChecksum) (io.ReadCloser, error) {
@@ -240,8 +310,8 @@ func (f failingIntegrityChecker) DecorateWriter(writer io.WriteCloser, writeChec
 	return writer, nil
 }
 
-func openStore(t *testing.T, dir store.Dir) *store.Store {
-	s, err := store.Open(dir)
+func openStore(t *testing.T, dir store.Dir, options ...store.Option) *store.Store {
+	s, err := store.Open(dir, options...)
 	require.NoError(t, err)
 	return s
 }

@@ -112,6 +112,8 @@ func TestFile_Sync(t *testing.T) {
 		actualFile := dir.Files()[0]
 		assert.Equal(t, data, actualFile.SyncedData())
 	})
+
+	dirtest.TestFileWriter_Sync(t, dirs)
 }
 
 func TestFile_SyncedData(t *testing.T) {

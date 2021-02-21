@@ -77,6 +77,10 @@ func TestOsDir_DeleteFile(t *testing.T) {
 	dirtest.TestDir_DeleteFile(t, dirs)
 }
 
+func TestOsWriter_Sync(t *testing.T) {
+	dirtest.TestFileWriter_Sync(t, dirs)
+}
+
 func TestDir_ThreadSafety(t *testing.T) {
 	dirtest.TestDir_ThreadSafety(t, dirs)
 }

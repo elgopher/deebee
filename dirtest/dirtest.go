@@ -89,6 +89,25 @@ func TestFileWriter_Write(t *testing.T, dirs Dirs) {
 	}
 }
 
+func TestFileWriter_Sync(t *testing.T, dirs Dirs) {
+	for dirType, newDir := range dirs {
+		t.Run(dirType, func(t *testing.T) {
+
+			t.Run("should return error when file is already closed", func(t *testing.T) {
+				dir := newDir(t)
+				file, err := dir.FileWriter("file")
+				require.NoError(t, err)
+				err = file.Close()
+				require.NoError(t, err)
+				// when
+				err = file.Sync()
+				// then
+				assert.Error(t, err)
+			})
+		})
+	}
+}
+
 func TestDir_FileReader(t *testing.T, dirs Dirs) {
 	for dirType, newDir := range dirs {
 		t.Run(dirType, func(t *testing.T) {
