@@ -74,6 +74,20 @@ func TestCompacter(t *testing.T) {
 		require.NoError(t, err)
 		assertClosed(t, updates)
 	})
+
+	t.Run("store.Close() should wait for compacter to finish", func(t *testing.T) {
+		var finished bool
+		compacter := func(ctx context.Context, state store.State) {
+			<-ctx.Done()
+			finished = true
+		}
+		s := openStoreWithOptions(t, store.Compacter(compacter))
+		// when
+		err := s.Close()
+		require.NoError(t, err)
+		// then
+		assert.True(t, finished)
+	})
 }
 
 func TestState_Versions(t *testing.T) {
@@ -143,12 +157,15 @@ func TestState_Versions(t *testing.T) {
 		require.NoError(t, err)
 
 		var state store.State
+		stateIsSet := make(chan struct{})
 		compacter := func(ctx context.Context, s store.State) {
 			state = s
+			close(stateIsSet)
 		}
 		fakeTime := &fakeNow{currentTime: creationTime}
 		s := openStoreWithOptions(t, store.Compacter(compacter), store.Now(fakeTime.Now))
 		storetest.WriteData(t, s, []byte("data"))
+		requireClosed(t, stateIsSet)
 		// when
 		fakeTime.currentTime = time2
 		states, err := state.Versions()
@@ -230,9 +247,14 @@ func openStoreWithCompacter(t *testing.T, compacter store.CompactState) *store.S
 }
 
 func openStoreWithCompacterAndDir(t *testing.T, compacter store.CompactState, dir store.Dir) *store.Store {
-	s, err := store.Open(dir, store.Compacter(compacter))
+	compacterFinished := make(chan struct{})
+	s, err := store.Open(dir, store.Compacter(func(ctx context.Context, state store.State) {
+		compacter(ctx, state)
+		close(compacterFinished)
+	}))
 	require.NoError(t, err)
 	assert.NotNil(t, s)
+	requireClosed(t, compacterFinished)
 	return s
 }
 
@@ -258,5 +280,14 @@ func assertClosed(t *testing.T, channel <-chan struct{}) {
 		assert.False(t, ok, "channel not closed")
 	case <-time.After(1 * time.Second):
 		assert.FailNow(t, "timeout waiting for close")
+	}
+}
+
+func requireClosed(t *testing.T, channel <-chan struct{}) {
+	select {
+	case _, ok := <-channel:
+		require.False(t, ok, "channel not closed")
+	case <-time.After(1 * time.Second):
+		require.FailNow(t, "timeout waiting for close")
 	}
 }

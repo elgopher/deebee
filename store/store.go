@@ -73,6 +73,7 @@ type Store struct {
 	dataIntegrityChecker DataIntegrityChecker
 	compacter            CompactState
 	cancelCompacter      context.CancelFunc
+	compacterFinished    chan struct{}
 	state                *state
 	now                  TimeNow
 }
@@ -155,12 +156,17 @@ func (s *Store) useDefaultCompacterIfNotSet() {
 func (s *Store) startCompacter() {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	s.cancelCompacter = cancelFunc
-	s.compacter(ctx, s.state)
+	s.compacterFinished = make(chan struct{})
+	go func() {
+		s.compacter(ctx, s.state)
+		close(s.compacterFinished)
+	}()
 }
 
 func (s *Store) Close() error {
 	s.cancelCompacter()
 	s.state.close()
+	<-s.compacterFinished
 	return nil
 }
 

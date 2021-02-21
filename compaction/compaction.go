@@ -15,10 +15,7 @@ func Strategy(options ...StrategyOption) store.Option {
 		if err != nil {
 			return fmt.Errorf("NewCompacter failed: %w", err)
 		}
-		compactState := func(ctx context.Context, state store.State) {
-			go compacter.Start(ctx, state)
-		}
-		return store.Compacter(compactState)(s)
+		return store.Compacter(compacter.Start)(s)
 	}
 }
 
