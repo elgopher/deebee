@@ -78,6 +78,7 @@ type Store struct {
 	cancelCompacter      context.CancelFunc
 	compacterFinished    chan struct{}
 	state                *state
+	subscriptions        subscriptions
 	now                  TimeNow
 }
 type ReadChecksum func() ([]byte, error)
@@ -94,6 +95,8 @@ type DataIntegrityChecker interface {
 // Returns Writer for new version of state
 func (s *Store) Writer() (io.WriteCloser, error) {
 	defer s.state.notifyUpdated()
+	defer s.subscriptions.notify()
+
 	name, err := s.nextVersionFilename(s.dir)
 	if err != nil {
 		return nil, err
@@ -170,6 +173,7 @@ func (s *Store) startCompacter() {
 func (s *Store) Close() error {
 	s.cancelCompacter()
 	s.state.close()
+	s.subscriptions.close()
 	<-s.compacterFinished
 	return nil
 }
