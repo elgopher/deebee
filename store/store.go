@@ -260,3 +260,22 @@ func readAll(reader io.ReadCloser) error {
 		}
 	}
 }
+
+func (s *Store) Versions() ([]StateVersion, error) {
+	files, err := s.dir.ListFiles()
+	if err != nil {
+		return nil, err
+	}
+	dataFiles := filterDataFiles(files)
+	sortByVersionAscending(dataFiles)
+	var states []StateVersion
+	for _, dataFile := range dataFiles {
+		version := &stateVersion{
+			revision: dataFile.version,
+			dataFile: dataFile,
+			dir:      s.dir,
+		}
+		states = append(states, version)
+	}
+	return states, nil
+}

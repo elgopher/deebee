@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/jacekolszak/deebee/failing"
 	"github.com/jacekolszak/deebee/fake"
@@ -263,6 +264,118 @@ func TestSync(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestStore_Versions(t *testing.T) {
+	t.Run("should return empty state versions", func(t *testing.T) {
+		s := openStore(t, fake.ExistingDir())
+		// when
+		versions, err := s.Versions()
+		require.NoError(t, err)
+		assert.Empty(t, versions)
+	})
+
+	t.Run("should return one state version", func(t *testing.T) {
+		s := openStore(t, fake.ExistingDir())
+		// when
+		storetest.WriteData(t, s, []byte("data"))
+		// when
+		states, err := s.Versions()
+		require.NoError(t, err)
+		require.Len(t, states, 1)
+	})
+
+	t.Run("should return two state versions", func(t *testing.T) {
+		s := openStore(t, fake.ExistingDir())
+		// when
+		storetest.WriteData(t, s, []byte("data"))
+		storetest.WriteData(t, s, []byte("updated"))
+		// when
+		states, err := s.Versions()
+		require.NoError(t, err)
+		require.Len(t, states, 2)
+		assert.True(t, states[0].Revision() != states[1].Revision(), "revisions are not different")
+	})
+
+	t.Run("should return sorted states by revision", func(t *testing.T) {
+		s := openStore(t, fake.ExistingDir())
+		// when
+		const revisions = 256
+		for i := 0; i < revisions; i++ {
+			storetest.WriteData(t, s, []byte("data"))
+		}
+		// when
+		states, err := s.Versions()
+		require.NoError(t, err)
+		require.Len(t, states, revisions)
+		for i := 0; i < revisions-1; i++ {
+			assert.True(t, states[i].Revision() < states[i+1].Revision(), "revisions are not sorted: states[%d].Revision < states[%d].Revision", i, i+1)
+		}
+	})
+
+	t.Run("should return time of state creation", func(t *testing.T) {
+		creationTime, err := time.Parse(time.RFC3339, "1999-01-01T12:00:00Z")
+		require.NoError(t, err)
+		currentTime, err := time.Parse(time.RFC3339, "2077-01-01T12:00:00Z")
+		require.NoError(t, err)
+
+		fakeTime := &fakeNow{currentTime: creationTime}
+		s := openStoreWithOptions(t, store.Now(fakeTime.Now))
+		storetest.WriteData(t, s, []byte("data"))
+		// when
+		fakeTime.currentTime = currentTime
+		states, err := s.Versions()
+		// then
+		require.NoError(t, err)
+		require.Len(t, states, 1)
+		assert.Equal(t, creationTime, states[0].Time())
+	})
+}
+
+func TestState_Remove(t *testing.T) {
+	t.Run("should return empty states when last remaining version is removed", func(t *testing.T) {
+		s := openStore(t, fake.ExistingDir())
+		storetest.WriteData(t, s, []byte("data"))
+		states, err := s.Versions()
+		require.NoError(t, err)
+		// when
+		err = states[0].Remove()
+		// then
+		require.NoError(t, err)
+		states, err = s.Versions()
+		require.NoError(t, err)
+		assert.Empty(t, states)
+	})
+
+	t.Run("should remove one state's version when two versions are available", func(t *testing.T) {
+		s := openStore(t, fake.ExistingDir())
+		storetest.WriteData(t, s, []byte("data1"))
+		storetest.WriteData(t, s, []byte("data2"))
+		states, err := s.Versions()
+		require.NoError(t, err)
+		removedState := states[0]
+		// when
+		err = removedState.Remove()
+		// then
+		require.NoError(t, err)
+		states, err = s.Versions()
+		require.NoError(t, err)
+		assert.Len(t, states, 1)
+		assert.NotEqual(t, removedState.Revision(), states[0].Revision(), "wrong revision removed")
+	})
+
+	t.Run("should return error when dir.DeleteFile is failing", func(t *testing.T) {
+		dir := failing.DeleteFile(fake.ExistingDir())
+		s := openStore(t, dir)
+
+		storetest.WriteData(t, s, []byte("data1"))
+		states, err := s.Versions()
+		require.NoError(t, err)
+		// when
+		err = states[0].Remove()
+		// then
+		assert.Error(t, err)
+	})
 }
 
 type writeFixedChecksumIntegrityChecker []byte
