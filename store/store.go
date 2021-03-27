@@ -4,27 +4,75 @@
 package store
 
 import (
+	"errors"
+	"fmt"
 	"io"
+	"os"
 	"time"
 )
 
 func Open(dir string, options ...Option) (*Store, error) {
-	return &Store{}, nil
+	if dir == "" {
+		return nil, errors.New("dir is empty: must be a valid directory path")
+	}
+
+	s := &Store{dir: dir}
+	for _, apply := range options {
+		if apply == nil {
+			continue
+		}
+		if err := apply(s); err != nil {
+			return nil, fmt.Errorf("error applying option: %w", err)
+		}
+	}
+
+	stat, err := os.Lstat(dir)
+	switch {
+	case os.IsNotExist(err):
+		if s.failWhenMissingDir {
+			return nil, fmt.Errorf("store directory %s does not exist", dir)
+		}
+		if mkdirErr := os.MkdirAll(dir, 0775); mkdirErr != nil {
+			return nil, fmt.Errorf("mkdir failed for directory %s: %w", dir, mkdirErr)
+		}
+	case err != nil:
+		return nil, fmt.Errorf("lstat failed for directory %s: %w", dir, err)
+	case !stat.IsDir():
+		return nil, fmt.Errorf("%s is not a directory", dir)
+	}
+
+	return s, nil
 }
 
 type Option func(s *Store) error
 
+var FailWhenMissingDir Option = func(s *Store) error {
+	s.failWhenMissingDir = true
+	return nil
+}
+
 type Store struct {
+	failWhenMissingDir bool
+	dir                string
+	lastVersionTime    time.Time
 }
 
 func (s *Store) Reader(options ...ReaderOption) (Reader, error) {
-	return nil, nil
+	return s.openReader(options)
 }
 
-type ReaderOption func() error
+type ReaderOption func(*ReaderOptions) error
 
-func Time(time.Time) ReaderOption {
-	return func() error {
+func Time(t time.Time) ReaderOption {
+	return func(o *ReaderOptions) error {
+		o.chooseVersion = func(versions []Version) (Version, error) {
+			for _, version := range versions {
+				if version.Time.Equal(t) {
+					return version, nil
+				}
+			}
+			return Version{}, versionNotFoundError{msg: fmt.Sprintf("version %s not found", t)}
+		}
 		return nil
 	}
 }
@@ -34,60 +82,66 @@ type Reader interface {
 	Version() Version
 }
 
-func (s *Store) Writer(options ...WriterOption) (Writer, error) {
-	return nil, nil
+func IsVersionNotFound(err error) bool {
+	_, ok := err.(versionNotFoundError)
+	return ok
 }
 
-type WriterOption func() error
+func (s *Store) Writer(options ...WriterOption) (Writer, error) {
+	return s.openWriter(options)
+}
+
+type WriterOption func(*WriterOptions) error
+
+type WriterOptions struct {
+	time time.Time
+	sync func(*os.File) error
+}
 
 // WriteTime is not named Time to avoid name conflict with ReaderOption
-func WriteTime(time.Time) WriterOption {
-	return func() error {
+func WriteTime(t time.Time) WriterOption {
+	return func(o *WriterOptions) error {
+		o.time = t
 		return nil
 	}
 }
 
-var NoSync WriterOption = func() error {
+var NoSync WriterOption = func(o *WriterOptions) error {
+	o.sync = func(file *os.File) error {
+		return nil
+	}
 	return nil
 }
 
 type Writer interface {
 	io.Writer
-	// Close must be called to make state readable
+	// Close must be called to make version readable
 	Close() error
-	// Version size increases when writing?
 	Version() Version
 	// AbortAndClose aborts writing version. Version will not be available to read.
 	AbortAndClose()
 }
 
-func (s *Store) Versions(options ...VersionsOption) ([]Version, error) {
-	panic("implement me")
-}
-
-type VersionsOption func() error
-
-var OldestFirst VersionsOption = func() error {
-	return nil
-}
-var NewestFirst VersionsOption = func() error {
-	return nil
-}
-
-func Limit(max int) VersionsOption {
-	return func() error {
-		return nil
-	}
+func (s *Store) Versions() ([]Version, error) {
+	return s.versions()
 }
 
 type Version struct {
 	// Time uniquely identifies version
 	Time time.Time
-	Size int
+	Size int64
 }
 
-func (s *Store) DeleteVersion(time.Time) error {
-	panic("implement me")
+func (s *Store) DeleteVersion(t time.Time) error {
+	filename := s.dataFilename(t)
+	err := os.Remove(filename)
+	if os.IsNotExist(err) {
+		return versionNotFoundError{msg: fmt.Sprintf("version %s does not exist", t)}
+	}
+	if err != nil {
+		return fmt.Errorf("error removing file %s: %w", filename, err)
+	}
+	return nil
 }
 
 func (s *Store) Metrics() Metrics {

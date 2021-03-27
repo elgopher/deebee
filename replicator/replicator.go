@@ -16,22 +16,22 @@ import (
 )
 
 func CopyFromTo(from ReadOnlyStore, to WriteOnlyStore) error {
-	versions, _ := from.Versions(store.NewestFirst, store.Limit(1))
+	versions, _ := from.Versions()
 	if len(versions) == 0 {
 		return errors.New("no versions available")
 	}
-	version := versions[0]
-	return copyVersion(version, from, to)
+	latest := versions[len(versions)-1]
+	return copyVersion(latest, from, to)
 }
 
 // Replicate state asynchronously in one minute intervals
 func StartFromTo(ctx context.Context, from ReadOnlyStore, to WriteOnlyStore, options ...Option) {
-	CopyFromTo(from, to)
+	_ = CopyFromTo(from, to)
 }
 
 type ReadOnlyStore interface {
 	Reader(...store.ReaderOption) (store.Reader, error)
-	Versions(...store.VersionsOption) ([]store.Version, error)
+	Versions() ([]store.Version, error)
 }
 
 type WriteOnlyStore interface {
