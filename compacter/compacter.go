@@ -20,7 +20,7 @@ func RunOnce(store Store, options ...Option) error {
 
 type Store interface {
 	Reader(...store.ReaderOption) (store.Reader, error)
-	Versions(...store.VersionsOption) ([]store.Version, error)
+	Versions() ([]store.Version, error)
 	DeleteVersion(time.Time) error
 }
 

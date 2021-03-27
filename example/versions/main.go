@@ -13,13 +13,13 @@ func main() {
 		panic(err)
 	}
 
-	versions, err := s.Versions(store.OldestFirst)
+	versions, err := s.Versions()
 	if err != nil {
 		panic(err)
 	}
 
 	for _, version := range versions {
-		fmt.Println(version)
+		fmt.Printf("Version: %+v\n", version)
 	}
 
 	if len(versions) == 0 {
@@ -32,7 +32,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer reader.Close()
+	_ = reader.Close()
 
 	err = s.DeleteVersion(oldest.Time)
 	if err != nil {
