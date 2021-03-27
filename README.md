@@ -8,7 +8,7 @@ Embedded database in Go for super frequent updates of large data.
 
 # Quick Start
 
-See [example/main.go](example/main.go)
+See [example/json/main.go](example/json/main.go)
 
 # Project goal
 
