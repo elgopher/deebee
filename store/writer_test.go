@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacekolszak/deebee/internal/tests"
 	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -16,7 +17,7 @@ import (
 func TestStore_Writer(t *testing.T) {
 
 	t.Run("should return writer", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		// when
 		writer, err := s.Writer()
 		// then
@@ -26,7 +27,7 @@ func TestStore_Writer(t *testing.T) {
 	})
 
 	t.Run("should open writer with specific time", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writeTime := time.Unix(1000, 0)
 		// when
 		writer, err := s.Writer(store.WriteTime(writeTime))
@@ -38,7 +39,7 @@ func TestStore_Writer(t *testing.T) {
 	})
 
 	t.Run("should accept nil option", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		w, err := s.Writer(nil)
 		defer closeSilently(w)
 		require.NoError(t, err)
@@ -46,7 +47,7 @@ func TestStore_Writer(t *testing.T) {
 	})
 
 	t.Run("should return error when option returned error", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		option := func(*store.WriterOptions) error {
 			return errors.New("error")
 		}
@@ -60,7 +61,7 @@ func TestStore_Writer(t *testing.T) {
 func TestWriter_Write(t *testing.T) {
 
 	t.Run("should return length of data and nil error", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writer, _ := s.Writer()
 		defer closeSilently(writer)
 		data := []byte("data")
@@ -72,7 +73,7 @@ func TestWriter_Write(t *testing.T) {
 	})
 
 	t.Run("consecutive writes should increase version size", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writer, _ := s.Writer()
 		defer closeSilently(writer)
 		data := []byte("data")
@@ -90,7 +91,7 @@ func TestWriter_Write(t *testing.T) {
 	})
 
 	t.Run("write after close should return error", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writer, _ := s.Writer()
 		_ = writer.Close()
 		// when
@@ -104,7 +105,7 @@ func TestWriter_Write(t *testing.T) {
 func TestWriter_AbortAndClose(t *testing.T) {
 
 	t.Run("aborted data for a new store should not be available for read", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writer, _ := s.Writer()
 		_, err := writer.Write([]byte("data"))
 		require.NoError(t, err)
@@ -120,9 +121,9 @@ func TestWriter_AbortAndClose(t *testing.T) {
 	})
 
 	t.Run("aborted data for a store with previously written data should not be available for read", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		oldData := []byte("old")
-		writeData(t, s, oldData)
+		tests.WriteData(t, s, oldData)
 		versionsBefore := readVersions(t, s)
 
 		writer, _ := s.Writer()
@@ -131,7 +132,7 @@ func TestWriter_AbortAndClose(t *testing.T) {
 		// when
 		writer.AbortAndClose()
 		// then
-		dataRead := readData(t, s)
+		dataRead := tests.ReadData(t, s)
 		assert.Equal(t, oldData, dataRead)
 		// and
 		versionsAfter := readVersions(t, s)
@@ -142,7 +143,7 @@ func TestWriter_AbortAndClose(t *testing.T) {
 func TestWriter_Version(t *testing.T) {
 
 	t.Run("should return Version for newly created writer", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writer, _ := s.Writer()
 		defer closeSilently(writer)
 		// when
@@ -155,7 +156,7 @@ func TestWriter_Version(t *testing.T) {
 func TestWriter_Close(t *testing.T) {
 
 	t.Run("should return error when trying to close already closed writer", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writer, _ := s.Writer()
 		_ = writer.Close()
 		// when
@@ -165,7 +166,7 @@ func TestWriter_Close(t *testing.T) {
 	})
 
 	t.Run("should no sync when closing the file", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writer, _ := s.Writer(store.NoSync)
 		// when
 		err := writer.Close()

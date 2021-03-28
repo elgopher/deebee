@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacekolszak/deebee/internal/tests"
 	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,17 +16,17 @@ import (
 func TestStore_Versions(t *testing.T) {
 
 	t.Run("should return empty slice for new store", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		versions, err := s.Versions()
 		require.NoError(t, err)
 		assert.Empty(t, versions)
 	})
 
 	t.Run("should add version once writer is closed", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		data := []byte("data")
 		dataLen := int64(len(data))
-		version := writeData(t, s, data)
+		version := tests.WriteData(t, s, data)
 		// when
 		versions, err := s.Versions()
 		// then
@@ -43,10 +44,10 @@ func TestStore_Versions(t *testing.T) {
 		t3, err := time.Parse(time.RFC3339, "2001-01-01T15:45:00Z") // 16:45 +01:00
 		require.NoError(t, err)
 
-		s := openStore(t)
-		v1 := writeData(t, s, []byte("1"), store.WriteTime(t1))
-		v2 := writeData(t, s, []byte("2"), store.WriteTime(t2))
-		v3 := writeData(t, s, []byte("3"), store.WriteTime(t3))
+		s := tests.OpenStore(t)
+		v1 := tests.WriteData(t, s, []byte("1"), store.WriteTime(t1))
+		v2 := tests.WriteData(t, s, []byte("2"), store.WriteTime(t2))
+		v3 := tests.WriteData(t, s, []byte("3"), store.WriteTime(t3))
 		// when
 		versions, err := s.Versions()
 		// then
@@ -61,7 +62,7 @@ func TestStore_Versions(t *testing.T) {
 func TestStore_DeleteVersion(t *testing.T) {
 
 	t.Run("should return error when version does not exist", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		missingVersion := time.Now()
 		err := s.DeleteVersion(missingVersion)
 		require.Error(t, err)
@@ -69,8 +70,8 @@ func TestStore_DeleteVersion(t *testing.T) {
 	})
 
 	t.Run("should delete last available version", func(t *testing.T) {
-		s := openStore(t)
-		version := writeData(t, s, []byte("data"))
+		s := tests.OpenStore(t)
+		version := tests.WriteData(t, s, []byte("data"))
 		// when
 		err := s.DeleteVersion(version.Time)
 		// then
@@ -78,14 +79,4 @@ func TestStore_DeleteVersion(t *testing.T) {
 		_, err = s.Reader()
 		assert.True(t, store.IsVersionNotFound(err))
 	})
-}
-
-func writeData(t *testing.T, s *store.Store, bytes []byte, writerOptions ...store.WriterOption) store.Version {
-	writer, err := s.Writer(writerOptions...)
-	require.NoError(t, err)
-	_, err = writer.Write(bytes)
-	require.NoError(t, err)
-	err = writer.Close()
-	require.NoError(t, err)
-	return writer.Version()
 }
