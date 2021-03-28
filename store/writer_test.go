@@ -88,6 +88,17 @@ func TestWriter_Write(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, dataLen*2, writer.Version().Size)
 	})
+
+	t.Run("write after close should return error", func(t *testing.T) {
+		s := openStore(t)
+		writer, _ := s.Writer()
+		_ = writer.Close()
+		// when
+		n, err := writer.Write([]byte("data"))
+		// then
+		assert.Error(t, err)
+		assert.Equal(t, 0, n)
+	})
 }
 
 func TestWriter_AbortAndClose(t *testing.T) {
