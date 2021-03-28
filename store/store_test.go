@@ -10,6 +10,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/jacekolszak/deebee/internal/tests"
 	"github.com/jacekolszak/deebee/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,24 +74,24 @@ func TestOpen(t *testing.T) {
 func TestReadAfterWrite(t *testing.T) {
 
 	t.Run("should read previously written data", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		data := []byte("data")
-		writeData(t, s, data)
-		dataRead := readData(t, s)
+		tests.WriteData(t, s, data)
+		dataRead := tests.ReadData(t, s)
 		assert.Equal(t, data, dataRead)
 	})
 
 	t.Run("should read updated data", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		newData := []byte("new")
-		writeData(t, s, []byte("old data"))
-		writeData(t, s, newData)
-		dataRead := readData(t, s)
+		tests.WriteData(t, s, []byte("old data"))
+		tests.WriteData(t, s, newData)
+		dataRead := tests.ReadData(t, s)
 		assert.Equal(t, newData, dataRead)
 	})
 
 	t.Run("when Close was not called, version should not be available to read", func(t *testing.T) {
-		s := openStore(t)
+		s := tests.OpenStore(t)
 		writer, _ := s.Writer()
 		defer closeSilently(writer)
 		// when
