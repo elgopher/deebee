@@ -5,8 +5,8 @@ package store
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
-	"path"
 	"time"
 )
 
@@ -46,12 +46,6 @@ func (s *Store) nextVersionTime() time.Time {
 	return t
 }
 
-const filenameDateFormat = "2006-01-02T15_04_05.999999999Z"
-
-func (s *Store) dataFilename(t time.Time) string {
-	return path.Join(s.dir, t.UTC().Format(filenameDateFormat))
-}
-
 type writer struct {
 	file *os.File
 	time time.Time
@@ -66,13 +60,23 @@ func (w *writer) Write(p []byte) (int, error) {
 }
 
 func (w *writer) Close() error {
+	checksumFile := checksumFileForDataFile(w.file.Name())
+	if err := writeChecksum(checksumFile, []byte{}); err != nil {
+		_ = w.file.Close()
+		return fmt.Errorf("error writing checksum file %s: %w", checksumFile, err)
+	}
 	if err := w.sync(w.file); err != nil {
+		_ = w.file.Close()
 		return fmt.Errorf("error syncing file: %w", err)
 	}
 	if err := w.file.Close(); err != nil {
 		return fmt.Errorf("error closing file: %w", err)
 	}
 	return nil
+}
+
+func writeChecksum(filename string, data []byte) error {
+	return ioutil.WriteFile(filename, data, 0664)
 }
 
 func (w *writer) Version() Version {

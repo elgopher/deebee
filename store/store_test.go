@@ -88,6 +88,22 @@ func TestReadAfterWrite(t *testing.T) {
 		dataRead := readData(t, s)
 		assert.Equal(t, newData, dataRead)
 	})
+
+	t.Run("when Close was not called, version should not be available to read", func(t *testing.T) {
+		s := openStore(t)
+		writer, _ := s.Writer()
+		defer closeSilently(writer)
+		// when
+		_, err := writer.Write([]byte("data"))
+		require.NoError(t, err)
+		// then
+		_, err = s.Reader()
+		assert.True(t, store.IsVersionNotFound(err))
+		// and
+		versions, err := s.Versions()
+		require.NoError(t, err)
+		assert.Empty(t, versions)
+	})
 }
 
 func tempDir(t *testing.T) string {
