@@ -9,24 +9,55 @@ package replicator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/jacekolszak/deebee/store"
 )
 
 func CopyFromTo(from ReadOnlyStore, to WriteOnlyStore) error {
-	versions, _ := from.Versions()
-	if len(versions) == 0 {
-		return errors.New("no versions available")
+	if from == nil {
+		return errors.New("nil <from> store")
 	}
-	latest := versions[len(versions)-1]
-	return copyVersion(latest, from, to)
+	if to == nil {
+		return errors.New("nil <to> store")
+	}
+	return copyLatest(from, to)
 }
 
 // Replicate state asynchronously in one minute intervals
-func StartFromTo(ctx context.Context, from ReadOnlyStore, to WriteOnlyStore, options ...Option) {
-	_ = CopyFromTo(from, to)
+func StartFromTo(ctx context.Context, from ReadOnlyStore, to WriteOnlyStore, options ...Option) error {
+	if from == nil {
+		return errors.New("nil <from> store")
+	}
+	if to == nil {
+		return errors.New("nil <to> store")
+	}
+
+	opts := &Options{
+		interval: time.Minute,
+	}
+	for _, apply := range options {
+		if apply == nil {
+			continue
+		}
+		if err := apply(opts); err != nil {
+			return fmt.Errorf("error applying option: %w", err)
+		}
+	}
+
+	for {
+		select {
+		case <-time.After(opts.interval):
+			if err := CopyFromTo(from, to); err != nil {
+				log.Printf("replicator.CopyFromTo failed: %s", err)
+			}
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
 
 type ReadOnlyStore interface {
@@ -38,21 +69,25 @@ type WriteOnlyStore interface {
 	Writer(options ...store.WriterOption) (store.Writer, error)
 }
 
-type Option func() error
+type Option func(*Options) error
 
-func Interval(duration time.Duration) Option {
-	return func() error {
+type Options struct {
+	interval time.Duration
+}
+
+func Interval(d time.Duration) Option {
+	return func(o *Options) error {
+		o.interval = d
 		return nil
 	}
 }
 
-func copyVersion(version store.Version, from ReadOnlyStore, to WriteOnlyStore) error {
-	reader, err := from.Reader(store.Time(version.Time)) // Reader for specific version does not check integrity before
+func copyLatest(from ReadOnlyStore, to WriteOnlyStore) error {
+	reader, err := from.Reader()
 	if err != nil {
 		return err
 	}
-	// explicitly set version - will fail if file already exists
-	writer, err := to.Writer(store.WriteTime(version.Time))
+	writer, err := to.Writer(store.WriteTime(reader.Version().Time))
 	if err != nil {
 		return err
 	}

@@ -15,6 +15,11 @@ func main() {
 		panic(err)
 	}
 
+	err = json.Write(cheapStore, map[string]string{})
+	if err != nil {
+		panic(err)
+	}
+
 	sharedStore, err := store.Open("/tmp/deebee/shared") // shared store can use NFS, AWS EFS etc.
 	if err != nil {
 		panic(err)
@@ -29,12 +34,11 @@ func main() {
 	// copy recent versions continuously in the background
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go replicator.StartFromTo(ctx, cheapStore, sharedStore, replicator.Interval(10*time.Second))
-
-	err = json.Write(cheapStore, map[string]string{})
-	if err != nil {
-		panic(err)
-	}
+	go func() {
+		if err2 := replicator.StartFromTo(ctx, cheapStore, sharedStore, replicator.Interval(10*time.Second)); err2 != nil {
+			panic(err2)
+		}
+	}()
 
 	time.Sleep(20 * time.Second)
 }
