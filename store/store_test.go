@@ -5,6 +5,7 @@ package store_test
 
 import (
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -81,6 +82,23 @@ func TestReadAfterWrite(t *testing.T) {
 		assert.Equal(t, data, dataRead)
 	})
 
+	t.Run("should read previously written data using 2 write operations", func(t *testing.T) {
+		s := tests.OpenStore(t)
+
+		writer, _ := s.Writer()
+		_, err := writer.Write([]byte("data1"))
+		require.NoError(t, err)
+		_, err = writer.Write([]byte(" and data2"))
+		require.NoError(t, err)
+
+		err = writer.Close()
+		require.NoError(t, err)
+		// when
+		dataRead := tests.ReadData(t, s)
+		// then
+		assert.Equal(t, []byte("data1 and data2"), dataRead)
+	})
+
 	t.Run("should read updated data", func(t *testing.T) {
 		s := tests.OpenStore(t)
 		newData := []byte("new")
@@ -105,6 +123,23 @@ func TestReadAfterWrite(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, versions)
 	})
+
+	t.Run("should return error when requested version is corrupted", func(t *testing.T) {
+		dir := tests.TempDir(t)
+		s, err := store.Open(dir)
+		require.NoError(t, err)
+
+		version := writeLargeData(t, s, 999, 1234)
+		corruptFiles(t, dir)
+
+		reader, err := s.Reader(store.Time(version.Time))
+		require.NoError(t, err)
+		defer closeSilently(reader)
+		// when
+		err = readAllDiscarding(reader, 33)
+		// then
+		assert.Error(t, err)
+	})
 }
 
 func tempDir(t *testing.T) string {
@@ -119,4 +154,79 @@ func tempDir(t *testing.T) string {
 func touchFile(t *testing.T, path string) {
 	err := ioutil.WriteFile(path, []byte{}, 0664)
 	require.NoError(t, err)
+}
+
+func corruptFiles(t *testing.T, dir string) {
+	files, err := ioutil.ReadDir(dir)
+	require.NoError(t, err)
+	for _, file := range files {
+		corruptFile(t, path.Join(dir, file.Name()))
+	}
+}
+
+func corruptFile(t *testing.T, file string) {
+	stat, err := os.Lstat(file)
+	require.NoError(t, err)
+	fileSize := stat.Size()
+
+	f, err := os.OpenFile(file, os.O_RDWR, 0664)
+	require.NoError(t, err)
+	defer closeSilently(f)
+
+	var i int64
+	for i = 0; i < fileSize; i += 1010 {
+		corruptSingleByteAt(t, f, i)
+	}
+}
+
+func corruptSingleByteAt(t *testing.T, f *os.File, offset int64) {
+	b := make([]byte, 1)
+	_, err := f.ReadAt(b, offset)
+	require.NoError(t, err)
+	b[0] = b[0] + 1
+	_, err = f.WriteAt(b, offset)
+	require.NoError(t, err)
+}
+
+func writeLargeData(t *testing.T, s *store.Store, blocks, blockSize int, writerOptions ...store.WriterOption) store.Version {
+	var b byte
+
+	writer, err := s.Writer(writerOptions...)
+	require.NoError(t, err)
+
+	for i := 0; i < blocks; i++ {
+		block := newBlockOfData(blockSize, b)
+		_, err = writer.Write(block)
+		require.NoError(t, err)
+
+		lastByteValue := block[len(block)-1]
+		b = lastByteValue
+	}
+	err = writer.Close()
+	require.NoError(t, err)
+	return writer.Version()
+}
+
+// newBlockOfData generates block of data with each byte value higher than previous one by 1
+func newBlockOfData(blockSize int, firstByteValue byte) []byte {
+	b := firstByteValue
+	block := make([]byte, blockSize)
+	for j := 0; j < blockSize; j++ {
+		block[j] = b
+		b++
+	}
+	return block
+}
+
+func readAllDiscarding(reader io.Reader, blockSize int) error {
+	block := make([]byte, blockSize)
+	for {
+		_, err := reader.Read(block)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
 }

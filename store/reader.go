@@ -4,7 +4,11 @@
 package store
 
 import (
+	"bytes"
 	"fmt"
+	"hash"
+	"io"
+	"io/ioutil"
 	"os"
 )
 
@@ -44,8 +48,9 @@ func (s *Store) openReader(options []ReaderOption) (Reader, error) {
 		return nil, fmt.Errorf("error opening file %s for reading: %w", name, err)
 	}
 	r := &reader{
-		file:    file,
-		version: version,
+		file:     file,
+		version:  version,
+		checksum: newHash(),
 	}
 	return r, nil
 }
@@ -55,16 +60,30 @@ type ReaderOptions struct {
 }
 
 type reader struct {
-	file    *os.File
-	version Version
+	file     *os.File
+	version  Version
+	checksum hash.Hash
 }
 
 func (r *reader) Read(p []byte) (int, error) {
 	n, err := r.file.Read(p)
-	//if err == io.EOF {
-	//	// validate checksum. If checksum is wrong then return error
-	//}
+	if err == io.EOF {
+		sum := r.checksum.Sum([]byte{})
+		expectedSum, err := r.readChecksum()
+		if err != nil {
+			return 0, fmt.Errorf("error reading checksum: %w", err)
+		}
+		if !bytes.Equal(expectedSum, sum) {
+			return 0, fmt.Errorf("invalid checksum when reading file %s", r.file.Name())
+		}
+	}
+	r.checksum.Write(p[:n])
 	return n, err
+}
+
+func (r *reader) readChecksum() ([]byte, error) {
+	checksumFile := checksumFileForDataFile(r.file.Name())
+	return ioutil.ReadFile(checksumFile)
 }
 
 func (r *reader) Close() error {

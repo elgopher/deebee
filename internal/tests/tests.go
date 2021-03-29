@@ -14,12 +14,12 @@ import (
 )
 
 func OpenStore(t *testing.T, options ...store.Option) *store.Store {
-	s, err := store.Open(tempDir(t), options...)
+	s, err := store.Open(TempDir(t), options...)
 	require.NoError(t, err)
 	return s
 }
 
-func tempDir(t *testing.T) string {
+func TempDir(t *testing.T) string {
 	dir, err := ioutil.TempDir("", "deebee")
 	require.NoError(t, err)
 	t.Cleanup(func() {
