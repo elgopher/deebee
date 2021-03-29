@@ -5,6 +5,7 @@ package store
 
 import (
 	"fmt"
+	"hash"
 	"io/ioutil"
 	"os"
 	"time"
@@ -30,9 +31,10 @@ func (s *Store) openWriter(options []WriterOption) (Writer, error) {
 		return nil, fmt.Errorf("error opening the file %s for writing: %w", name, err)
 	}
 	w := &writer{
-		file: file,
-		time: opts.time,
-		sync: opts.sync,
+		file:     file,
+		time:     opts.time,
+		sync:     opts.sync,
+		checksum: newHash(),
 	}
 	return w, nil
 }
@@ -47,23 +49,24 @@ func (s *Store) nextVersionTime() time.Time {
 }
 
 type writer struct {
-	file *os.File
-	time time.Time
-	sync func(*os.File) error
-	size int64
+	file     *os.File
+	time     time.Time
+	sync     func(*os.File) error
+	size     int64
+	checksum hash.Hash
 }
 
 func (w *writer) Write(p []byte) (int, error) {
 	n, err := w.file.Write(p)
 	w.size += int64(n)
+	w.checksum.Write(p[:n])
 	return n, err
 }
 
 func (w *writer) Close() error {
-	checksumFile := checksumFileForDataFile(w.file.Name())
-	if err := writeChecksum(checksumFile, []byte{}); err != nil {
+	if err := w.writeChecksum(); err != nil {
 		_ = w.file.Close()
-		return fmt.Errorf("error writing checksum file %s: %w", checksumFile, err)
+		return fmt.Errorf("error writing checksum: %w", err)
 	}
 	if err := w.sync(w.file); err != nil {
 		_ = w.file.Close()
@@ -75,8 +78,10 @@ func (w *writer) Close() error {
 	return nil
 }
 
-func writeChecksum(filename string, data []byte) error {
-	return ioutil.WriteFile(filename, data, 0664)
+func (w *writer) writeChecksum() error {
+	checksumFile := checksumFileForDataFile(w.file.Name())
+	sum := w.checksum.Sum([]byte{})
+	return ioutil.WriteFile(checksumFile, sum, 0664)
 }
 
 func (w *writer) Version() Version {
