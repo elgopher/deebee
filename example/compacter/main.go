@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jacekolszak/deebee/compacter"
+	"github.com/jacekolszak/deebee/json"
 	"github.com/jacekolszak/deebee/store"
 )
 
@@ -15,8 +16,15 @@ func main() {
 		panic(err)
 	}
 
+	for i := 0; i < 10; i++ {
+		err = json.Write(s, map[string]string{})
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	// run compacter once
-	err = compacter.RunOnce(s, compacter.MaxVersions(3))
+	err = compacter.RunOnce(s)
 	if err != nil {
 		panic(err)
 	}
@@ -24,6 +32,10 @@ func main() {
 	// run compacter continuously in the background
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go compacter.Start(ctx, s)
+	go func() {
+		if err2 := compacter.Start(ctx, s); err2 != nil {
+			panic(err2)
+		}
+	}()
 	time.Sleep(10 * time.Second)
 }

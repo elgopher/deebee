@@ -122,6 +122,7 @@ type Writer interface {
 	AbortAndClose()
 }
 
+// Versions return slice sorted by time, oldest first
 func (s *Store) Versions() ([]Version, error) {
 	return s.versions()
 }
@@ -133,13 +134,17 @@ type Version struct {
 }
 
 func (s *Store) DeleteVersion(t time.Time) error {
-	filename := s.dataFilename(t)
-	err := os.Remove(filename)
-	if os.IsNotExist(err) {
-		return versionNotFoundError{msg: fmt.Sprintf("version %s does not exist", t)}
-	}
-	if err != nil {
-		return fmt.Errorf("error removing file %s: %w", filename, err)
+	dataFile := s.dataFilename(t)
+	checksumFile := checksumFileForDataFile(dataFile)
+
+	for _, file := range []string{dataFile, checksumFile} {
+		err := os.Remove(file)
+		if os.IsNotExist(err) {
+			return versionNotFoundError{msg: fmt.Sprintf("version %s does not exist", t)}
+		}
+		if err != nil {
+			return fmt.Errorf("error removing file %s: %w", file, err)
+		}
 	}
 	return nil
 }
