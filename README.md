@@ -20,6 +20,14 @@ Create a minimalistic database for storing application state. Database should:
 * should be fast for updating large amount of data (from megabytes to gigabytes)
 * should be optimized for writes, not reads
 
+# Why and what are the alternatives?
+
+* because very often all you need is to persist some memory structure to disk
+* so why not simply use files directly?
+  * because writing to file is not an atomic operation
+  * because you want your app to be aware that disk has failed and the stored state cannot be used anymore
+  * because you want to have multiple historical versions stored
+
 # Project status
 
-Undery heavy development :)
+MVP almost ready. The API is still changing though. 
