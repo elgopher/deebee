@@ -131,7 +131,7 @@ func TestReadAfterWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		version := writeLargeData(t, s, 999, 1234)
-		corruptFiles(t, dir)
+		tests.CorruptFiles(t, dir)
 
 		reader, err := s.Reader(store.Time(version.Time))
 		require.NoError(t, err)
@@ -148,7 +148,7 @@ func TestReadAfterWrite(t *testing.T) {
 		require.NoError(t, err)
 		tests.WriteData(t, s, []byte("data1"))
 		tests.WriteData(t, s, []byte("data2"))
-		corruptFiles(t, dir)
+		tests.CorruptFiles(t, dir)
 		// when
 		_, err = s.Reader()
 		// then
@@ -167,7 +167,7 @@ func TestReadAfterWrite(t *testing.T) {
 		require.NoError(t, err)
 
 		tests.WriteData(t, s, []byte("second version"))
-		corruptFiles(t, dir)             // we don't know which files to corrupt therefore all will be corrupted
+		tests.CorruptFiles(t, dir)       // we don't know which files to corrupt therefore all will be corrupted
 		err = otiai10.Copy(dirCopy, dir) // bring back files which were not corrupted
 		require.NoError(t, err)
 		// when
@@ -188,38 +188,6 @@ func tempDir(t *testing.T) string {
 
 func touchFile(t *testing.T, path string) {
 	err := ioutil.WriteFile(path, []byte{}, 0664)
-	require.NoError(t, err)
-}
-
-func corruptFiles(t *testing.T, dir string) {
-	files, err := ioutil.ReadDir(dir)
-	require.NoError(t, err)
-	for _, file := range files {
-		corruptFile(t, path.Join(dir, file.Name()))
-	}
-}
-
-func corruptFile(t *testing.T, file string) {
-	stat, err := os.Lstat(file)
-	require.NoError(t, err)
-	fileSize := stat.Size()
-
-	f, err := os.OpenFile(file, os.O_RDWR, 0664)
-	require.NoError(t, err)
-	defer closeSilently(f)
-
-	var i int64
-	for i = 0; i < fileSize; i += 1010 {
-		corruptSingleByteAt(t, f, i)
-	}
-}
-
-func corruptSingleByteAt(t *testing.T, f *os.File, offset int64) {
-	b := make([]byte, 1)
-	_, err := f.ReadAt(b, offset)
-	require.NoError(t, err)
-	b[0] = b[0] + 1
-	_, err = f.WriteAt(b, offset)
 	require.NoError(t, err)
 }
 

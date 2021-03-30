@@ -5,17 +5,77 @@ package compacter
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/jacekolszak/deebee/store"
 )
 
-func Start(ctx context.Context, store Store, options ...Option) {
+func RunOnce(s Store, options ...Option) error {
+	if s == nil {
+		return errors.New("nil store")
+	}
 
+	_, err := applyOptions(options)
+	if err != nil {
+		return err
+	}
+
+	versions, err := s.Versions()
+	if err != nil {
+		return fmt.Errorf("error getting versions: %w", err)
+	}
+
+	if len(versions) > 1 {
+		latestVersion, err := findLatestIntegralVersion(s)
+		if err != nil {
+			return fmt.Errorf("error getting latest integral version: %w", err)
+		}
+		for _, v := range versions {
+			if v == latestVersion {
+				return nil
+			}
+			if err := s.DeleteVersion(v.Time); err != nil {
+				return fmt.Errorf("error when deleting version: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
-func RunOnce(store Store, options ...Option) error {
-	return nil
+func findLatestIntegralVersion(s Store) (store.Version, error) {
+	reader, err := s.Reader()
+	if err != nil {
+		return store.Version{}, err
+	}
+	version := reader.Version()
+	_ = reader.Close()
+	return version, nil
+}
+
+func Start(ctx context.Context, s Store, options ...Option) error {
+	if s == nil {
+		return errors.New("nil store")
+	}
+
+	opts, err := applyOptions(options)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-time.After(opts.interval):
+			if err := RunOnce(s, options...); err != nil {
+				log.Printf("compacter.RunOnce failed: %s", err)
+			}
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
 
 type Store interface {
@@ -24,10 +84,31 @@ type Store interface {
 	DeleteVersion(time.Time) error
 }
 
-type Option func() error
+type Option func(options *Options) error
 
-func MaxVersions(max int) Option {
-	return func() error {
+type Options struct {
+	interval time.Duration
+}
+
+func Interval(d time.Duration) Option {
+	return func(options *Options) error {
+		options.interval = d
 		return nil
 	}
+}
+
+func applyOptions(options []Option) (*Options, error) {
+	opts := &Options{
+		interval: time.Minute,
+	}
+
+	for _, apply := range options {
+		if apply == nil {
+			continue
+		}
+		if err := apply(opts); err != nil {
+			return nil, fmt.Errorf("error applying option: %w", err)
+		}
+	}
+	return opts, nil
 }
