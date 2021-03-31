@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 )
 
 func (s *Store) openReader(options []ReaderOption) (Reader, error) {
@@ -64,6 +65,7 @@ func (s *Store) openReader(options []ReaderOption) (Reader, error) {
 		file:     file,
 		version:  version,
 		checksum: newHash(),
+		metrics:  &s.metrics.Read,
 	}
 	return r, nil
 }
@@ -76,9 +78,13 @@ type reader struct {
 	file     *os.File
 	version  Version
 	checksum hash.Hash
+
+	metrics *ReadMetrics
 }
 
 func (r *reader) Read(p []byte) (int, error) {
+	defer r.addElapsedTime(time.Now())
+
 	n, err := r.file.Read(p)
 	if err == io.EOF {
 		sum := r.checksum.Sum([]byte{})
@@ -91,6 +97,8 @@ func (r *reader) Read(p []byte) (int, error) {
 		}
 	}
 	r.checksum.Write(p[:n])
+
+	r.metrics.TotalBytesRead += n
 	return n, err
 }
 
@@ -134,6 +142,8 @@ func calculateChecksum(filename string) ([]byte, error) {
 }
 
 func (r *reader) Close() error {
+	defer r.addElapsedTime(time.Now())
+
 	if err := r.file.Close(); err != nil {
 		return fmt.Errorf("error closing file: %w", err)
 	}
@@ -150,4 +160,8 @@ type versionNotFoundError struct {
 
 func (v versionNotFoundError) Error() string {
 	return v.msg
+}
+
+func (r *reader) addElapsedTime(start time.Time) {
+	r.metrics.TotalTime += time.Since(start)
 }

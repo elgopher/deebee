@@ -3,25 +3,23 @@
 
 package store
 
+import "time"
+
 type Metrics struct {
-	Versions          VersionMetrics
-	AvailableVersions VersionMetrics
-
-	ReaderRequests   RequestMetrics
-	WriterRequests   RequestMetrics
-	VersionsRequests RequestMetrics
-	DeleteRequests   RequestMetrics
-	ReadTotal        RequestMetrics // Total time spend from opening the Reader to closing it
-	WriteTotal       RequestMetrics // Total time spend from opening the Writer to closing it
+	Read  ReadMetrics
+	Write WriteMetrics
 }
 
-type VersionMetrics struct {
-	Count     int
-	TotalSize int
+type ReadMetrics struct {
+	ReaderCalls    int // Number of Store.Reader() calls
+	TotalBytesRead int
+	TotalTime      time.Duration
 }
 
-type RequestMetrics struct {
-	Count       int
-	ErrorCount  int
-	TotalMillis int
+type WriteMetrics struct {
+	WriterCalls       int // Number of Store.Writer() calls
+	Successful        int // Number of successful writes (when writer was closed without aborting)
+	Aborted           int // Number of aborted writes (when Writer.AbortAndClose was called)
+	TotalBytesWritten int
+	TotalTime         time.Duration
 }
