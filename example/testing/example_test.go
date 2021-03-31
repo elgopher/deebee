@@ -11,8 +11,6 @@ import (
 
 func TestFunction(t *testing.T) {
 
-	t.Skip("ignored until Store is implemented")
-
 	t.Run("this test shows how to use Dependency Injection and temp directory to test your code", func(t *testing.T) {
 		s := openStore(t) // open store in each test
 		_ = Function(s)   // use dependency injection to pass a Store instance to function under test
