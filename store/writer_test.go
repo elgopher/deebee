@@ -38,6 +38,14 @@ func TestStore_Writer(t *testing.T) {
 		assert.True(t, writer.Version().Time.Equal(writeTime), "time not equal")
 	})
 
+	t.Run("should return error when trying to open Writer with same time twice", func(t *testing.T) {
+		s := tests.OpenStore(t)
+		version := tests.WriteData(t, s, []byte("data"))
+		writer, err := s.Writer(store.WriteTime(version.Time))
+		assert.Error(t, err)
+		assert.Nil(t, writer)
+	})
+
 	t.Run("should accept nil option", func(t *testing.T) {
 		s := tests.OpenStore(t)
 		w, err := s.Writer(nil)
