@@ -25,8 +25,8 @@ Create a minimalistic database for storing application state. Database should:
 * because very often all you need is to persist some memory structure to disk
 * so why not simply use files directly?
   * because writing to file is not an atomic operation
-  * because you want your app to be aware that disk has failed and the stored state cannot be used anymore
-  * because you want to have multiple historical versions stored
+  * because you want your app to be aware of disk failure or that data was not written entirely because of the app/system crash and such stored state cannot be used anymore
+  * because you want to have multiple historical versions stored, especially for cases described above
 
 # Project status
 
