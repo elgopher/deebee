@@ -26,7 +26,7 @@ func (s *Store) openWriter(options []WriterOption) (Writer, error) {
 	}
 
 	name := s.dataFilename(opts.time)
-	file, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0664)
+	file, err := os.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0664)
 	if err != nil {
 		return nil, fmt.Errorf("error opening the file %s for writing: %w", name, err)
 	}
