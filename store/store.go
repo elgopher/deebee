@@ -55,9 +55,12 @@ type Store struct {
 	failWhenMissingDir bool
 	dir                string
 	lastVersionTime    time.Time
+	metrics            Metrics
 }
 
 func (s *Store) Reader(options ...ReaderOption) (Reader, error) {
+	s.metrics.Read.ReaderCalls++
+
 	return s.openReader(options)
 }
 
@@ -88,6 +91,8 @@ func IsVersionNotFound(err error) bool {
 }
 
 func (s *Store) Writer(options ...WriterOption) (Writer, error) {
+	s.metrics.Write.WriterCalls++
+
 	return s.openWriter(options)
 }
 
@@ -150,5 +155,5 @@ func (s *Store) DeleteVersion(t time.Time) error {
 }
 
 func (s *Store) Metrics() Metrics {
-	return Metrics{}
+	return s.metrics
 }

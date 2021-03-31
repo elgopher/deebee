@@ -35,6 +35,7 @@ func (s *Store) openWriter(options []WriterOption) (Writer, error) {
 		time:     opts.time,
 		sync:     opts.sync,
 		checksum: newHash(),
+		metrics:  &s.metrics.Write,
 	}
 	return w, nil
 }
@@ -54,16 +55,24 @@ type writer struct {
 	sync     func(*os.File) error
 	size     int64
 	checksum hash.Hash
+
+	metrics *WriteMetrics
 }
 
 func (w *writer) Write(p []byte) (int, error) {
+	defer w.addElapsedTime(time.Now())
+
 	n, err := w.file.Write(p)
 	w.size += int64(n)
 	w.checksum.Write(p[:n])
+
+	w.metrics.TotalBytesWritten += n
 	return n, err
 }
 
 func (w *writer) Close() error {
+	defer w.addElapsedTime(time.Now())
+
 	if err := w.writeChecksum(); err != nil {
 		_ = w.file.Close()
 		return fmt.Errorf("error writing checksum: %w", err)
@@ -75,6 +84,8 @@ func (w *writer) Close() error {
 	if err := w.file.Close(); err != nil {
 		return fmt.Errorf("error closing file: %w", err)
 	}
+
+	w.metrics.Successful++
 	return nil
 }
 
@@ -92,6 +103,14 @@ func (w *writer) Version() Version {
 }
 
 func (w *writer) AbortAndClose() {
+	defer w.addElapsedTime(time.Now())
+
 	_ = w.file.Close()
 	_ = os.Remove(w.file.Name())
+
+	w.metrics.Aborted++
+}
+
+func (w *writer) addElapsedTime(start time.Time) {
+	w.metrics.TotalTime += time.Since(start)
 }
