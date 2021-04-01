@@ -22,12 +22,11 @@ Create a minimalistic database for storing application state. Database should:
 
 # Why and what are the alternatives?
 
-* because very often all you need is to persist some memory structure to disk
-* so why not simply use files directly?
-    * because writing to file is not an atomic operation
-    * because you want your app to be aware of disk failure or that data was not written entirely because of the
-      app/system crash and such stored state cannot be used anymore
-    * because you want to have multiple historical versions stored, especially for cases described above
+* because very often all you need is to persist some **in-memory** data structure to disk
+* so why not simply use `os` package and write files directly ?
+    * because writing to a file is not an atomic operation - there are multiple steps involved - and most of the time you either want to write an entire file or no file at all
+    * because there might be a problem with disk failure, or your app/operating system may crash during writing
+    * because you want to update file many times, and you want to have access to its historical versions
 
 # Project status
 
