@@ -89,11 +89,13 @@ func copyLatest(from ReadOnlyStore, to WriteOnlyStore) error {
 	}
 	writer, err := to.Writer(store.WriteTime(reader.Version().Time))
 	if err != nil {
+		_ = reader.Close()
 		return err
 	}
 	_, err = io.Copy(writer, reader)
 	if err != nil {
 		writer.AbortAndClose()
+		_ = reader.Close()
 		return err
 	}
 	if err := reader.Close(); err != nil {
