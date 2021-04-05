@@ -42,7 +42,7 @@ func TestStore_Writer(t *testing.T) {
 		s := tests.OpenStore(t)
 		version := tests.WriteData(t, s, []byte("data"))
 		writer, err := s.Writer(store.WriteTime(version.Time))
-		assert.Error(t, err)
+		assert.True(t, store.IsVersionAlreadyExists(err))
 		assert.Nil(t, writer)
 	})
 

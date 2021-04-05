@@ -154,14 +154,6 @@ func (r *reader) Version() Version {
 	return r.version
 }
 
-type versionNotFoundError struct {
-	msg string
-}
-
-func (v versionNotFoundError) Error() string {
-	return v.msg
-}
-
 func (r *reader) addElapsedTime(start time.Time) {
 	r.metrics.TotalTime += time.Since(start)
 }
