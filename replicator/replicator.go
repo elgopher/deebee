@@ -27,7 +27,7 @@ func CopyFromTo(from ReadOnlyStore, to WriteOnlyStore) error {
 	return copyLatest(from, to)
 }
 
-// Replicate state asynchronously in one minute intervals
+// StartFromTo replicates state asynchronously in one minute intervals
 func StartFromTo(ctx context.Context, from ReadOnlyStore, to WriteOnlyStore, options ...Option) error {
 	if from == nil {
 		return errors.New("nil <from> store")
@@ -51,7 +51,7 @@ func StartFromTo(ctx context.Context, from ReadOnlyStore, to WriteOnlyStore, opt
 	for {
 		select {
 		case <-time.After(opts.interval):
-			if err := CopyFromTo(from, to); err != nil {
+			if err := CopyFromTo(from, to); err != nil && !store.IsVersionAlreadyExists(err) {
 				log.Printf("replicator.CopyFromTo failed: %s", err)
 			}
 		case <-ctx.Done():
