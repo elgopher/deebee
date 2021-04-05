@@ -85,11 +85,6 @@ type Reader interface {
 	Version() Version
 }
 
-func IsVersionNotFound(err error) bool {
-	_, ok := err.(versionNotFoundError)
-	return ok
-}
-
 func (s *Store) Writer(options ...WriterOption) (Writer, error) {
 	s.metrics.Write.WriterCalls++
 

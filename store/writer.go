@@ -27,6 +27,9 @@ func (s *Store) openWriter(options []WriterOption) (Writer, error) {
 
 	name := s.dataFilename(opts.time)
 	file, err := os.OpenFile(name, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0664)
+	if os.IsExist(err) {
+		return nil, versionAlreadyExistsError{msg: fmt.Sprintf("version %s already exists: %s", opts.time, err)}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error opening the file %s for writing: %w", name, err)
 	}
