@@ -6,6 +6,7 @@ package replicator_test
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -143,7 +144,7 @@ func TestStartFromTo(t *testing.T) {
 func TestReadLatest(t *testing.T) {
 	t.Run("should return error", func(t *testing.T) {
 		t.Run("when no store is given", func(t *testing.T) {
-			decoder := func(reader store.Reader) error {
+			decoder := func(reader io.Reader) error {
 				return nil
 			}
 			_, err := replicator.ReadLatest(decoder)
@@ -157,7 +158,7 @@ func TestReadLatest(t *testing.T) {
 		})
 
 		t.Run("nil stores", func(t *testing.T) {
-			decoder := func(reader store.Reader) error {
+			decoder := func(reader io.Reader) error {
 				return nil
 			}
 			_, err := replicator.ReadLatest(decoder, nil, nil)
@@ -273,7 +274,7 @@ func TestReadLatest(t *testing.T) {
 	})
 }
 
-func failingDecoder(store.Reader) error {
+func failingDecoder(io.Reader) error {
 	return errors.New("decoder failed")
 }
 
