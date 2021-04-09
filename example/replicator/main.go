@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/jacekolszak/deebee/json"
@@ -39,6 +40,14 @@ func main() {
 			panic(err2)
 		}
 	}()
+
+	// read latest version from replicated stores
+	out := map[string]string{}
+	version, err := replicator.ReadLatest(json.Decoder(out), cheapStore, sharedStore)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Version read from two stores: %+v", version)
 
 	time.Sleep(20 * time.Second)
 }

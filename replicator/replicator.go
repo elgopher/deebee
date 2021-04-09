@@ -14,10 +14,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/jacekolszak/deebee/codec"
 	"github.com/jacekolszak/deebee/store"
 )
 
-func CopyFromTo(from ReadOnlyStore, to WriteOnlyStore) error {
+func CopyFromTo(from codec.ReadOnlyStore, to codec.WriteOnlyStore) error {
 	if from == nil {
 		return errors.New("nil <from> store")
 	}
@@ -28,7 +29,7 @@ func CopyFromTo(from ReadOnlyStore, to WriteOnlyStore) error {
 }
 
 // StartFromTo replicates state asynchronously in one minute intervals
-func StartFromTo(ctx context.Context, from ReadOnlyStore, to WriteOnlyStore, options ...Option) error {
+func StartFromTo(ctx context.Context, from codec.ReadOnlyStore, to codec.WriteOnlyStore, options ...Option) error {
 	if from == nil {
 		return errors.New("nil <from> store")
 	}
@@ -60,15 +61,6 @@ func StartFromTo(ctx context.Context, from ReadOnlyStore, to WriteOnlyStore, opt
 	}
 }
 
-type ReadOnlyStore interface {
-	Reader(...store.ReaderOption) (store.Reader, error)
-	Versions() ([]store.Version, error)
-}
-
-type WriteOnlyStore interface {
-	Writer(options ...store.WriterOption) (store.Writer, error)
-}
-
 type Option func(*Options) error
 
 type Options struct {
@@ -82,7 +74,7 @@ func Interval(d time.Duration) Option {
 	}
 }
 
-func copyLatest(from ReadOnlyStore, to WriteOnlyStore) error {
+func copyLatest(from codec.ReadOnlyStore, to codec.WriteOnlyStore) error {
 	reader, err := from.Reader()
 	if err != nil {
 		return err
