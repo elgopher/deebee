@@ -5,6 +5,7 @@ package codec_test
 
 import (
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/jacekolszak/deebee/codec"
@@ -25,7 +26,7 @@ func TestWrite(t *testing.T) {
 	t.Run("should write using encoder", func(t *testing.T) {
 		s := tests.OpenStore(t)
 		input := []byte("data")
-		encoder := func(w store.Writer) error {
+		encoder := func(w io.Writer) error {
 			_, e := w.Write(input)
 			return e
 		}
@@ -39,7 +40,7 @@ func TestWrite(t *testing.T) {
 
 	t.Run("should abort writing on encoding error", func(t *testing.T) {
 		s := tests.OpenStore(t)
-		encoder := func(store.Writer) error {
+		encoder := func(io.Writer) error {
 			return errors.New("failed")
 		}
 		// when
@@ -90,7 +91,7 @@ func TestReadLatest(t *testing.T) {
 		})
 
 		t.Run("when no store is given", func(t *testing.T) {
-			decoder := func(reader store.Reader) error {
+			decoder := func(reader io.Reader) error {
 				return nil
 			}
 			_, err := codec.ReadLatest(nil, decoder)
@@ -196,6 +197,6 @@ func TestReadLatest(t *testing.T) {
 	})
 }
 
-func failingDecoder(store.Reader) error {
+func failingDecoder(io.Reader) error {
 	return errors.New("decoder failed")
 }

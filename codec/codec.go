@@ -5,6 +5,7 @@ package codec
 
 import (
 	"errors"
+	"io"
 
 	"github.com/jacekolszak/deebee/store"
 )
@@ -29,7 +30,7 @@ func Read(s ReadOnlyStore, decoder Decoder, options ...store.ReaderOption) (stor
 	return reader.Version(), nil
 }
 
-type Decoder func(reader store.Reader) error
+type Decoder func(reader io.Reader) error
 
 func Write(s WriteOnlyStore, encoder Encoder, options ...store.WriterOption) error {
 	if encoder == nil {
@@ -47,7 +48,7 @@ func Write(s WriteOnlyStore, encoder Encoder, options ...store.WriterOption) err
 	return writer.Close()
 }
 
-type Encoder func(writer store.Writer) error
+type Encoder func(writer io.Writer) error
 
 // ReadLatest reads latest version or fallback to previous one when decoder returned error
 func ReadLatest(s ReadOnlyStore, decoder Decoder) (store.Version, error) {

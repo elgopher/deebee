@@ -105,7 +105,7 @@ func applyOptions(options []Option) (*Options, error) {
 	return opts, nil
 }
 
-func readAllDiscarding(reader store.Reader) error {
+func readAllDiscarding(reader io.Reader) error {
 	block := make([]byte, 512)
 	for {
 		_, err := reader.Read(block)

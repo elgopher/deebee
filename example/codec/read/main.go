@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 
 	"github.com/jacekolszak/deebee/codec"
@@ -16,7 +17,7 @@ func main() {
 	}
 
 	var bytesRead []byte
-	version, err := codec.Read(s, func(reader store.Reader) error {
+	version, err := codec.Read(s, func(reader io.Reader) error {
 		all, e := ioutil.ReadAll(reader)
 		if e != nil {
 			return e
