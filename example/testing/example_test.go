@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -42,7 +43,7 @@ func Function(s *store.Store) error {
 	if err != nil {
 		return err
 	}
-	_, err = ioutil.ReadAll(reader)
+	_, err = io.ReadAll(reader)
 	if err != nil {
 		return err
 	}
