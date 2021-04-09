@@ -6,7 +6,6 @@ package replicator_test
 import (
 	"context"
 	"errors"
-	"io"
 	"testing"
 	"time"
 
@@ -49,23 +48,25 @@ func TestCopyFromTo(t *testing.T) {
 	})
 
 	t.Run("should abort writer when reader.Read returned error", func(t *testing.T) {
-		from := &storeMock{reader: &readerFailingOnRead{}}
-		to := &storeMock{writer: &writerMock{}}
+		from := &tests.StoreMock{ReturnReader: &tests.ReaderFailingOnRead{}}
+		writer := &tests.WriterMock{}
+		to := &tests.StoreMock{ReturnWriter: writer}
 		// when
 		err := replicator.CopyFromTo(from, to)
 		// then
 		require.Error(t, err)
-		assert.True(t, to.writer.aborted, "writer was not aborted")
+		assert.True(t, writer.IsAborted(), "writer was not aborted")
 	})
 
 	t.Run("should abort writer when reader.Close returned error", func(t *testing.T) {
-		from := &storeMock{reader: &readerFailingOnClose{}}
-		to := &storeMock{writer: &writerMock{}}
+		from := &tests.StoreMock{ReturnReader: &tests.ReaderFailingOnClose{}}
+		writer := &tests.WriterMock{}
+		to := &tests.StoreMock{ReturnWriter: writer}
 		// when
 		err := replicator.CopyFromTo(from, to)
 		// then
 		require.Error(t, err)
-		assert.True(t, to.writer.aborted, "writer was not aborted")
+		assert.True(t, writer.IsAborted(), "writer was not aborted")
 	})
 
 }
@@ -137,74 +138,143 @@ func TestStartFromTo(t *testing.T) {
 		cancel()
 		async.WaitOrFailAfter(t, time.Second)
 	})
-
 }
 
-type storeMock struct {
-	reader store.Reader
-	writer *writerMock
+func TestReadLatest(t *testing.T) {
+	t.Run("should return error", func(t *testing.T) {
+		t.Run("when no store is given", func(t *testing.T) {
+			decoder := func(reader store.Reader) error {
+				return nil
+			}
+			_, err := replicator.ReadLatest(decoder)
+			assert.Error(t, err)
+		})
+
+		t.Run("when no decoder is given", func(t *testing.T) {
+			s := tests.OpenStore(t)
+			_, err := replicator.ReadLatest(nil, s)
+			assert.Error(t, err)
+		})
+
+		t.Run("nil stores", func(t *testing.T) {
+			decoder := func(reader store.Reader) error {
+				return nil
+			}
+			_, err := replicator.ReadLatest(decoder, nil, nil)
+			assert.Error(t, err)
+		})
+
+		t.Run("when stores are empty", func(t *testing.T) {
+			s := &tests.StoreMock{
+				ReturnVersions: nil,
+			}
+			f := &tests.FakeDecoder{}
+			_, err := replicator.ReadLatest(f.Decode, s, s)
+			assert.True(t, store.IsVersionNotFound(err))
+		})
+
+		t.Run("when Store.Versions returned error for all stores", func(t *testing.T) {
+			e := errors.New("listing versions failed")
+			s := &tests.StoreMock{ReturnVersionsError: e}
+			f := &tests.FakeDecoder{}
+			_, err := replicator.ReadLatest(f.Decode, s, s)
+			assert.True(t, store.IsVersionNotFound(err))
+		})
+
+		t.Run("when Store.Reader returned error for all stores", func(t *testing.T) {
+			s := &tests.StoreMock{
+				ReturnVersions:    []store.Version{{}},
+				ReturnReaderError: errors.New("opening reader failed"),
+			}
+			f := &tests.FakeDecoder{}
+			_, err := replicator.ReadLatest(f.Decode, s, s)
+			assert.True(t, store.IsVersionNotFound(err))
+		})
+
+		t.Run("when decoder returned error for all stores", func(t *testing.T) {
+			s := &tests.StoreMock{
+				ReturnVersions: []store.Version{{}},
+				ReturnReader:   &tests.ReaderMock{},
+			}
+			_, err := replicator.ReadLatest(failingDecoder, s, s)
+			assert.True(t, store.IsVersionNotFound(err))
+		})
+	})
+
+	t.Run("should pick latest from one store", func(t *testing.T) {
+		s := tests.OpenStore(t)
+		tests.WriteData(t, s, []byte("1"))
+		data := []byte("2")
+		v := tests.WriteData(t, s, data)
+		decoder := &tests.FakeDecoder{}
+		// when
+		actualVersion, err := replicator.ReadLatest(decoder.Decode, s)
+		// then
+		require.NoError(t, err)
+		assert.True(t, v.Time.Equal(actualVersion.Time))
+		assert.Equal(t, data, decoder.DataRead())
+	})
+
+	t.Run("should pick from first store when two stores have identical version time", func(t *testing.T) {
+		s1 := tests.OpenStore(t)
+		data := []byte("data")
+		v := tests.WriteData(t, s1, data)
+
+		s2 := tests.OpenStore(t)
+		tests.WriteData(t, s2, []byte("other"), store.WriteTime(v.Time))
+
+		decoder := &tests.FakeDecoder{}
+		// when
+		actualVersion, err := replicator.ReadLatest(decoder.Decode, s1, s2)
+		// then
+		require.NoError(t, err)
+		assert.True(t, v.Time.Equal(actualVersion.Time))
+		assert.Equal(t, data, decoder.DataRead())
+	})
+
+	t.Run("should pick from second store which has more recent version", func(t *testing.T) {
+		now := time.Now()
+		secondLater := now.Add(time.Second)
+
+		s1 := tests.OpenStore(t)
+		tests.WriteData(t, s1, []byte("1"), store.WriteTime(now))
+		s2 := tests.OpenStore(t)
+		data := []byte("2")
+		v := tests.WriteData(t, s2, data, store.WriteTime(secondLater))
+
+		decoder := &tests.FakeDecoder{}
+		// when
+		actualVersion, err := replicator.ReadLatest(decoder.Decode, s1, s2)
+		// then
+		require.NoError(t, err)
+		assert.True(t, v.Time.Equal(actualVersion.Time))
+		assert.Equal(t, data, decoder.DataRead())
+	})
+
+	t.Run("should pick from second store when data in first is corrupted", func(t *testing.T) {
+		now := time.Now()
+		s1dir := tests.TempDir(t)
+		s1, _ := store.Open(s1dir)
+		tests.WriteData(t, s1, []byte("1"), store.WriteTime(now))
+		tests.CorruptFiles(t, s1dir)
+
+		s2 := tests.OpenStore(t)
+		data := []byte("2")
+		tests.WriteData(t, s2, data, store.WriteTime(now))
+
+		decoder := &tests.FakeDecoder{}
+		// when
+		actualVersion, err := replicator.ReadLatest(decoder.Decode, s1, s2)
+		// then
+		require.NoError(t, err)
+		assert.True(t, now.Equal(actualVersion.Time))
+		assert.Equal(t, data, decoder.DataRead())
+
+	})
 }
 
-func (s *storeMock) Reader(...store.ReaderOption) (store.Reader, error) {
-	return s.reader, nil
-}
-
-func (s *storeMock) Versions() ([]store.Version, error) {
-	return nil, nil
-}
-
-func (s *storeMock) Writer(...store.WriterOption) (store.Writer, error) {
-	return s.writer, nil
-}
-
-type readerMock struct{}
-
-func (r *readerMock) Read(p []byte) (n int, err error) {
-	return 0, io.EOF
-}
-
-func (r *readerMock) Close() error {
-	return nil
-}
-
-func (r *readerMock) Version() store.Version {
-	return store.Version{}
-}
-
-type readerFailingOnRead struct {
-	readerMock
-}
-
-func (r *readerFailingOnRead) Read([]byte) (n int, err error) {
-	return 0, errors.New("error")
-}
-
-type readerFailingOnClose struct {
-	readerMock
-}
-
-func (r *readerFailingOnClose) Close() error {
-	return errors.New("error")
-}
-
-type writerMock struct {
-	aborted bool
-}
-
-func (w *writerMock) Write(p []byte) (n int, err error) {
-	return len(p), nil
-}
-
-func (w *writerMock) Close() error {
-	return nil
-}
-
-func (w *writerMock) Version() store.Version {
-	return store.Version{}
-}
-
-func (w *writerMock) AbortAndClose() {
-	w.aborted = true
+func failingDecoder(store.Reader) error {
+	return errors.New("decoder failed")
 }
 
 func numberOfVersions(s *store.Store, l int) func() bool {
