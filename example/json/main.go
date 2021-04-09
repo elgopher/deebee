@@ -24,11 +24,12 @@ func main() {
 	}
 
 	out := State{}
-	err = json.Read(s, &out)
+	version, err := json.Read(s, &out)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("State read:", out)
+	fmt.Printf("Version: %+v", version)
 }
 
 type State struct {

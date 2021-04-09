@@ -47,13 +47,14 @@ func TestRunOnce(t *testing.T) {
 	})
 
 	t.Run("should remove all versions up to latest integral one", func(t *testing.T) {
-		s, lastNotCorruptedData := storeWithLastVersionCorrupted(t)
+		s := storeWithLastVersionCorrupted(t)
 		// when
 		err := compacter.RunOnce(s)
 		assert.NoError(t, err)
 		// then
-		data := tests.ReadData(t, s)
-		assert.Equal(t, lastNotCorruptedData, data)
+		versions, err := s.Versions()
+		require.NoError(t, err)
+		assert.Len(t, versions, 2) // one integral and one corrupted
 	})
 }
 
@@ -122,14 +123,13 @@ func TestStart(t *testing.T) {
 	})
 }
 
-func storeWithLastVersionCorrupted(t *testing.T) (*store.Store, []byte) {
+func storeWithLastVersionCorrupted(t *testing.T) *store.Store {
 	dir := tests.TempDir(t)
 	s, err := store.Open(dir)
 	require.NoError(t, err)
 	notCorruptedDir := tests.TempDir(t)
 	tests.WriteData(t, s, []byte("not corrupted 1"))
-	lastNotCorruptedData := []byte("not corrupted 2")
-	tests.WriteData(t, s, lastNotCorruptedData)
+	tests.WriteData(t, s, []byte("not corrupted 2"))
 	err = otiai10.Copy(dir, notCorruptedDir)
 	require.NoError(t, err)
 
@@ -138,7 +138,7 @@ func storeWithLastVersionCorrupted(t *testing.T) (*store.Store, []byte) {
 
 	err = otiai10.Copy(notCorruptedDir, dir)
 	require.NoError(t, err)
-	return s, lastNotCorruptedData
+	return s
 }
 
 func numberOfVersions(s *store.Store, l int) func() bool {

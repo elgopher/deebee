@@ -13,7 +13,6 @@ import (
 
 	"github.com/jacekolszak/deebee/internal/tests"
 	"github.com/jacekolszak/deebee/store"
-	otiai10 "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -125,7 +124,7 @@ func TestReadAfterWrite(t *testing.T) {
 		assert.Empty(t, versions)
 	})
 
-	t.Run("should return error when requested version is corrupted", func(t *testing.T) {
+	t.Run("should return error when version is corrupted", func(t *testing.T) {
 		dir := tests.TempDir(t)
 		s, err := store.Open(dir)
 		require.NoError(t, err)
@@ -133,48 +132,30 @@ func TestReadAfterWrite(t *testing.T) {
 		version := writeLargeData(t, s, 999, 1234)
 		tests.CorruptFiles(t, dir)
 
-		reader, err := s.Reader(store.Time(version.Time))
-		require.NoError(t, err)
-		defer closeSilently(reader)
-		// when
-		err = readAllDiscarding(reader, 33)
-		// then
-		assert.Error(t, err)
+		cases := map[string]func() (store.Reader, error){
+			"specific version": func() (store.Reader, error) {
+				return s.Reader(store.Time(version.Time))
+			},
+			"latest version": func() (store.Reader, error) {
+				return s.Reader()
+			},
+		}
+
+		for name, openReader := range cases {
+
+			t.Run(name, func(t *testing.T) {
+				reader, err := openReader()
+				require.NoError(t, err)
+				defer closeSilently(reader)
+				// when
+				err = readAllDiscarding(reader, 33)
+				// then
+				assert.Error(t, err)
+			})
+		}
+
 	})
 
-	t.Run("should return error when all files are corrupted", func(t *testing.T) {
-		dir := tests.TempDir(t)
-		s, err := store.Open(dir)
-		require.NoError(t, err)
-		tests.WriteData(t, s, []byte("data1"))
-		tests.WriteData(t, s, []byte("data2"))
-		tests.CorruptFiles(t, dir)
-		// when
-		_, err = s.Reader()
-		// then
-		assert.True(t, store.IsVersionNotFound(err))
-	})
-
-	t.Run("should read previous version of data when last one is corrupted", func(t *testing.T) {
-		dir := tests.TempDir(t)
-		s, err := store.Open(dir)
-		require.NoError(t, err)
-		firstVersionOfData := []byte("data")
-		tests.WriteData(t, s, firstVersionOfData)
-
-		dirCopy := tests.TempDir(t)
-		err = otiai10.Copy(dir, dirCopy)
-		require.NoError(t, err)
-
-		tests.WriteData(t, s, []byte("second version"))
-		tests.CorruptFiles(t, dir)       // we don't know which files to corrupt therefore all will be corrupted
-		err = otiai10.Copy(dirCopy, dir) // bring back files which were not corrupted
-		require.NoError(t, err)
-		// when
-		data := tests.ReadData(t, s)
-		// then
-		assert.Equal(t, firstVersionOfData, data)
-	})
 }
 
 func tempDir(t *testing.T) string {
