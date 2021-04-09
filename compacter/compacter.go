@@ -7,9 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
+	"github.com/jacekolszak/deebee/codec"
 	"github.com/jacekolszak/deebee/store"
 )
 
@@ -29,7 +31,7 @@ func RunOnce(s Store, options ...Option) error {
 	}
 
 	if len(versions) > 1 {
-		latestVersion, err := findLatestIntegralVersion(s)
+		latestVersion, err := codec.ReadLatest(s, readAllDiscarding)
 		if err != nil {
 			return fmt.Errorf("error getting latest integral version: %w", err)
 		}
@@ -44,16 +46,6 @@ func RunOnce(s Store, options ...Option) error {
 	}
 
 	return nil
-}
-
-func findLatestIntegralVersion(s Store) (store.Version, error) {
-	reader, err := s.Reader()
-	if err != nil {
-		return store.Version{}, err
-	}
-	version := reader.Version()
-	_ = reader.Close()
-	return version, nil
 }
 
 func Start(ctx context.Context, s Store, options ...Option) error {
@@ -111,4 +103,17 @@ func applyOptions(options []Option) (*Options, error) {
 		}
 	}
 	return opts, nil
+}
+
+func readAllDiscarding(reader store.Reader) error {
+	block := make([]byte, 512)
+	for {
+		_, err := reader.Read(block)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
 }

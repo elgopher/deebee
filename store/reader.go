@@ -9,7 +9,6 @@ import (
 	"hash"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
 )
@@ -17,20 +16,7 @@ import (
 func (s *Store) openReader(options []ReaderOption) (Reader, error) {
 	opts := &ReaderOptions{
 		chooseVersion: func(versions []Version) (Version, error) {
-			for i := len(versions) - 1; i >= 0; i-- {
-				latest := versions[i]
-				integral, err := s.isVersionIntegral(latest)
-				if err != nil {
-					return Version{}, err
-				}
-				if integral {
-					return latest, nil
-				}
-				if !integral && i > 0 {
-					log.Printf("Version \"%s\" stored in dir \"%s\" is corrupted. Falling back to previous one.", latest.Time, s.dir)
-				}
-			}
-			return Version{}, versionNotFoundError{msg: "no data found: all versions corrupted"}
+			return versions[len(versions)-1], nil
 		},
 	}
 
@@ -105,40 +91,6 @@ func (r *reader) Read(p []byte) (int, error) {
 func (r *reader) readChecksum() ([]byte, error) {
 	checksumFile := checksumFileForDataFile(r.file.Name())
 	return ioutil.ReadFile(checksumFile)
-}
-
-func (s *Store) isVersionIntegral(v Version) (bool, error) {
-	dataFile := s.dataFilename(v.Time)
-	checksumFile := checksumFileForDataFile(dataFile)
-	expectedChecksum, err := ioutil.ReadFile(checksumFile)
-	if err != nil {
-		return false, err
-	}
-	checksum, err := calculateChecksum(dataFile)
-	if err != nil {
-		return false, err
-	}
-	return bytes.Equal(expectedChecksum, checksum), nil
-}
-
-func calculateChecksum(filename string) ([]byte, error) {
-	checksum := newHash()
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	buffer := make([]byte, 4096)
-	for {
-		n, err := f.Read(buffer)
-		if err == io.EOF {
-			return checksum.Sum([]byte{}), nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		checksum.Write(buffer[:n])
-	}
 }
 
 func (r *reader) Close() error {

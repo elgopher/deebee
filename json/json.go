@@ -6,39 +6,26 @@ package json
 import (
 	"encoding/json"
 
+	"github.com/jacekolszak/deebee/codec"
 	"github.com/jacekolszak/deebee/store"
 )
 
-func Read(store ReadOnlyStore, v interface{}, options ...store.ReaderOption) error {
-	reader, err := store.Reader(options...)
-	if err != nil {
-		return err
-	}
-	err = json.NewDecoder(reader).Decode(v)
-	if err != nil {
-		_ = reader.Close()
-		return err
-	}
-	return reader.Close()
+func Read(s codec.ReadOnlyStore, out interface{}, options ...store.ReaderOption) (store.Version, error) {
+	return codec.Read(s, Decoder(out), options...)
 }
 
-func Write(store WriteOnlyStore, v interface{}, options ...store.WriterOption) error {
-	writer, err := store.Writer(options...)
-	if err != nil {
-		return err
+func Decoder(out interface{}) func(reader store.Reader) error {
+	return func(reader store.Reader) error {
+		return json.NewDecoder(reader).Decode(out)
 	}
-	err = json.NewEncoder(writer).Encode(v)
-	if err != nil {
-		writer.AbortAndClose()
-		return err
-	}
-	return writer.Close()
 }
 
-type ReadOnlyStore interface {
-	Reader(...store.ReaderOption) (store.Reader, error)
+func Write(s codec.WriteOnlyStore, in interface{}, options ...store.WriterOption) error {
+	return codec.Write(s, Encoder(in), options...)
 }
 
-type WriteOnlyStore interface {
-	Writer(...store.WriterOption) (store.Writer, error)
+func Encoder(in interface{}) func(writer store.Writer) error {
+	return func(writer store.Writer) error {
+		return json.NewEncoder(writer).Encode(in)
+	}
 }

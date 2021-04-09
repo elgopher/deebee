@@ -41,24 +41,53 @@ func TestWrite(t *testing.T) {
 func TestRead(t *testing.T) {
 	t.Run("should read json", func(t *testing.T) {
 		s := tests.OpenStore(t)
-		tests.WriteData(t, s, []byte(`{"Field":"value"}`))
-		v := State{}
+		v := tests.WriteData(t, s, []byte(`{"Field":"value"}`))
+		out := State{}
 		// when
-		err := json.Read(s, &v)
+		actualVersion, err := json.Read(s, &out)
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, State{Field: "value"}, v)
+		assert.Equal(t, State{Field: "value"}, out)
+		assert.True(t, v.Time.Equal(actualVersion.Time))
 	})
 
 	t.Run("should return error on unmarshalling error", func(t *testing.T) {
 		s := tests.OpenStore(t)
 		tests.WriteData(t, s, []byte(`{}`))
 		// when
-		err := json.Read(s, nil)
+		_, err := json.Read(s, nil)
 		// then
 		assert.Error(t, err)
 	})
+}
 
+func TestEncoder(t *testing.T) {
+	t.Run("should encode", func(t *testing.T) {
+		s := tests.OpenStore(t)
+		writer, _ := s.Writer()
+		// when
+		err := json.Encoder(&State{Field: "Value"})(writer)
+		// then
+		require.NoError(t, err)
+		_ = writer.Close()
+		output := tests.ReadData(t, s)
+		assert.JSONEq(t, `{"Field":"Value"}`, string(output))
+	})
+}
+
+func TestDecoder(t *testing.T) {
+	t.Run("should decode", func(t *testing.T) {
+		s := tests.OpenStore(t)
+		tests.WriteData(t, s, []byte(`{"Field":"Value"}`))
+		output := State{}
+		reader, _ := s.Reader()
+		defer reader.Close()
+		// when
+		err := json.Decoder(&output)(reader)
+		// then
+		require.NoError(t, err)
+		assert.Equal(t, State{Field: "Value"}, output)
+	})
 }
 
 type State struct {

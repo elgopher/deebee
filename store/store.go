@@ -74,7 +74,7 @@ func Time(t time.Time) ReaderOption {
 					return version, nil
 				}
 			}
-			return Version{}, versionNotFoundError{msg: fmt.Sprintf("version %s not found", t)}
+			return Version{}, NewVersionNotFoundError(fmt.Sprintf("version %s not found", t))
 		}
 		return nil
 	}
@@ -140,7 +140,7 @@ func (s *Store) DeleteVersion(t time.Time) error {
 	for _, file := range []string{dataFile, checksumFile} {
 		err := os.Remove(file)
 		if os.IsNotExist(err) {
-			return versionNotFoundError{msg: fmt.Sprintf("version %s does not exist", t)}
+			return NewVersionNotFoundError(fmt.Sprintf("version %s does not exist", t))
 		}
 		if err != nil {
 			return fmt.Errorf("error removing file %s: %w", file, err)
