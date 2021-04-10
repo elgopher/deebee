@@ -1,6 +1,10 @@
 # DeeBee ![DeeBee](bee.png)
 
-Embedded database in Go for super frequent updates of large data.
+Embedded database in Go for storing application state.
+
+# Where it can be used?
+
+In all kinds of applications that store their state in RAM and would like to save it to disk - cyclically, on demand or during shutdown. In other words, they would like to save a snapshot of their in-memory data structures to disk and restore them during startup.
 
 # Install
 
@@ -10,23 +14,33 @@ Embedded database in Go for super frequent updates of large data.
 
 See [example/json/main.go](example/json/main.go)
 
-# Project goal
+# Features:
 
-Create a minimalistic database for storing application state. Database should:
+* atomic write
+  * either the state is saved completely or not at all
+  * tolerance for killing the app while writing, restarting the machine or loss of power
+* integrity verification while reading
+  * tolerance for disk problems, buggy drivers or firmware
+  * tolerance for accidental file altering
+* access to historical data
+  * all previous states are available
+  * ability to read latest integral file (fail-over to previous version if latest is corrupted)
+  * API for deleting historical data - on demand or cyclically
+* asynchronous replication
+  * ability to copy latest version of state to another file-system (such as NFS)
+  * API for reading from multiple replicated stores
+* very little use of RAM and CPU
+* developer-friendly API
+  * small API with just a few functions and small amount of production code
+  * no external dependencies
+  * extensibility - new data formats can be easily added in a form of custom Codecs
+* easy application debugging
+  * data is stored on disk as it was saved by the app, so it can be easily read using editor of-choice
 
-* provide functionality of reading and writing (especially updating) application state
-* survive application crashes and some disk failures
-* consume as little memory as possible
-* should be fast for updating large amount of data (from megabytes to gigabytes)
-* should be optimized for writes, not reads
+# Alternatives
 
-# Why and what are the alternatives?
-
-* because very often all you need is to persist some **in-memory** data structure to disk
-* so why not simply use `os` package and write files directly ?
-    * because writing to a file is not an atomic operation - there are multiple steps involved - and most of the time you either want to write an entire file or no file at all
-    * because there might be a problem with disk failure, or your app/operating system may crash during writing
-    * because you want to update file many times, and you want to have access to its historical versions
+* read/write files using standard `os` package
+* use cloud storage services, such as AWS S3
 
 # Project status
 
