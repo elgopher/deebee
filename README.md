@@ -12,7 +12,7 @@ In all kinds of applications that store their state in RAM and would like to sav
 
 ## Quick Start
 
-See [example/json/main.go](example/json/main.go)
+See [example/json/main.go](example/json/main.go). More examples in [example directory](example). You can also check [deebee-loans](http://github.com/jacekolszak/deebee-loans) - a web application using in-memory state and DeeBee for persistence.
 
 ## Features:
 
