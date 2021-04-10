@@ -73,19 +73,26 @@ func (r *reader) Read(p []byte) (int, error) {
 
 	n, err := r.file.Read(p)
 	if err == io.EOF {
-		sum := r.checksum.Sum([]byte{})
-		expectedSum, err := r.readChecksum()
-		if err != nil {
-			return 0, fmt.Errorf("error reading checksum: %w", err)
-		}
-		if !bytes.Equal(expectedSum, sum) {
-			return 0, fmt.Errorf("invalid checksum when reading file %s", r.file.Name())
+		if err2 := r.validateChecksum(); err2 != nil {
+			return n, err2
 		}
 	}
 	r.checksum.Write(p[:n])
 
 	r.metrics.TotalBytesRead += n
 	return n, err
+}
+
+func (r *reader) validateChecksum() error {
+	sum := r.checksum.Sum([]byte{})
+	expectedSum, err := r.readChecksum()
+	if err != nil {
+		return fmt.Errorf("error reading checksum: %w", err)
+	}
+	if !bytes.Equal(expectedSum, sum) {
+		return fmt.Errorf("invalid checksum when reading file %s", r.file.Name())
+	}
+	return nil
 }
 
 func (r *reader) readChecksum() ([]byte, error) {
@@ -99,7 +106,7 @@ func (r *reader) Close() error {
 	if err := r.file.Close(); err != nil {
 		return fmt.Errorf("error closing file: %w", err)
 	}
-	return nil
+	return r.validateChecksum()
 }
 
 func (r *reader) Version() Version {
