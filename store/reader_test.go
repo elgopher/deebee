@@ -102,6 +102,26 @@ func TestReader_Close(t *testing.T) {
 		// then
 		assert.Error(t, err)
 	})
+
+	t.Run("should return error for corrupted file", func(t *testing.T) {
+		var (
+			dir  = tests.TempDir(t)
+			s, _ = store.Open(dir)
+			data = []byte("data to be corrupted")
+			out  = make([]byte, len(data))
+		)
+		tests.WriteData(t, s, data)
+		tests.CorruptFiles(t, dir)
+
+		reader, err := s.Reader()
+		require.NoError(t, err)
+		_, err = reader.Read(out) // read into buffer with the same size as file, so no EOF is reported
+		require.NoError(t, err)
+		// when
+		err = reader.Close()
+		// then
+		assert.Error(t, err)
+	})
 }
 
 func closeSilently(c io.Closer) {
