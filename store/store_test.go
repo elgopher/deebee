@@ -6,7 +6,6 @@ package store_test
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"path"
 	"testing"
 
@@ -26,7 +25,7 @@ func TestOpen(t *testing.T) {
 
 	t.Run("should return error when dir is not a directory", func(t *testing.T) {
 		invalidDir := path.Join(tests.TempDir(t), "file")
-		touchFile(t, invalidDir)
+		tests.TouchFile(t, invalidDir)
 		// when
 		s, err := store.Open(invalidDir)
 		// then
@@ -195,11 +194,6 @@ func assertNotCorrupted(t *testing.T, reader store.Reader) {
 	err2 := reader.Close()
 	assert.NoError(t, err1)
 	assert.NoError(t, err2)
-}
-
-func touchFile(t *testing.T, path string) {
-	err := ioutil.WriteFile(path, []byte{}, 0664)
-	require.NoError(t, err)
 }
 
 func writeLargeData(t *testing.T, s *store.Store, blocks, blockSize int, writerOptions ...store.WriterOption) store.Version {
