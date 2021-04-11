@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"os"
 	"path"
 	"testing"
 
@@ -26,7 +25,7 @@ func TestOpen(t *testing.T) {
 	})
 
 	t.Run("should return error when dir is not a directory", func(t *testing.T) {
-		invalidDir := path.Join(tempDir(t), "file")
+		invalidDir := path.Join(tests.TempDir(t), "file")
 		touchFile(t, invalidDir)
 		// when
 		s, err := store.Open(invalidDir)
@@ -36,28 +35,28 @@ func TestOpen(t *testing.T) {
 	})
 
 	t.Run("by default should create dir if does not exist", func(t *testing.T) {
-		dir := path.Join(tempDir(t), "missing")
+		dir := path.Join(tests.TempDir(t), "missing")
 		_, err := store.Open(dir)
 		require.NoError(t, err)
 		assert.DirExists(t, dir)
 	})
 
 	t.Run("by default should create nested dir if does not exist", func(t *testing.T) {
-		dir := path.Join(tempDir(t), "nested", "missing")
+		dir := path.Join(tests.TempDir(t), "nested", "missing")
 		_, err := store.Open(dir)
 		require.NoError(t, err)
 		assert.DirExists(t, dir)
 	})
 
 	t.Run("should return error when dir does not exist and FailWhenMissingDir option was used", func(t *testing.T) {
-		dir := path.Join(tempDir(t), "missing")
+		dir := path.Join(tests.TempDir(t), "missing")
 		s, err := store.Open(dir, store.FailWhenMissingDir)
 		require.Error(t, err)
 		assert.Nil(t, s)
 	})
 
 	t.Run("should accept nil option", func(t *testing.T) {
-		s, err := store.Open(tempDir(t), nil)
+		s, err := store.Open(tests.TempDir(t), nil)
 		require.NoError(t, err)
 		assert.NotNil(t, s)
 	})
@@ -66,7 +65,7 @@ func TestOpen(t *testing.T) {
 		option := func(*store.Store) error {
 			return errors.New("error")
 		}
-		s, err := store.Open(tempDir(t), option)
+		s, err := store.Open(tests.TempDir(t), option)
 		assert.Error(t, err)
 		assert.Nil(t, s)
 	})
@@ -196,15 +195,6 @@ func assertNotCorrupted(t *testing.T, reader store.Reader) {
 	err2 := reader.Close()
 	assert.NoError(t, err1)
 	assert.NoError(t, err2)
-}
-
-func tempDir(t *testing.T) string {
-	dir, err := ioutil.TempDir("", "deebee")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, os.RemoveAll(dir))
-	})
-	return dir
 }
 
 func touchFile(t *testing.T, path string) {
