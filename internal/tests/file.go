@@ -20,3 +20,8 @@ func UpdateFiles(t *testing.T, dir, extension string, newContent string) {
 		}
 	}
 }
+
+func TouchFile(t *testing.T, path string) {
+	err := ioutil.WriteFile(path, []byte{}, 0664)
+	require.NoError(t, err)
+}
