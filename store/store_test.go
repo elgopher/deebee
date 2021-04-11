@@ -156,6 +156,46 @@ func TestReadAfterWrite(t *testing.T) {
 
 	})
 
+	t.Run("store.NoIntegrityCheck should skip integrity check", func(t *testing.T) {
+		dir := tests.TempDir(t)
+		s, err := store.Open(dir, store.NoIntegrityCheck)
+		require.NoError(t, err)
+
+		tests.WriteData(t, s, []byte("to be corrupted"))
+		tests.CorruptFiles(t, dir)
+
+		reader, err := s.Reader()
+		require.NoError(t, err)
+		// expect
+		assertNotCorrupted(t, reader)
+	})
+
+	t.Run("updating .sum file with ALTERED should disable integrity check", func(t *testing.T) {
+		for _, alteredHash := range []string{"ALTERED", "ALTERED\n", "ALTERED\r\n"} {
+			t.Run(alteredHash, func(t *testing.T) {
+				dir := tests.TempDir(t)
+				s, err := store.Open(dir)
+				require.NoError(t, err)
+
+				tests.WriteData(t, s, []byte("to be corrupted"))
+				tests.CorruptFiles(t, dir)
+
+				tests.UpdateFiles(t, dir, ".sum", alteredHash)
+
+				reader, err := s.Reader()
+				require.NoError(t, err)
+				// expect
+				assertNotCorrupted(t, reader)
+			})
+		}
+	})
+}
+
+func assertNotCorrupted(t *testing.T, reader store.Reader) {
+	err1 := readAllDiscarding(reader, 8)
+	err2 := reader.Close()
+	assert.NoError(t, err1)
+	assert.NoError(t, err2)
 }
 
 func tempDir(t *testing.T) string {
