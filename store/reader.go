@@ -4,7 +4,6 @@
 package store
 
 import (
-	"bytes"
 	"fmt"
 	"hash"
 	"io"
@@ -13,7 +12,7 @@ import (
 	"time"
 )
 
-func (s *Store) openReader(options []ReaderOption) (Reader, error) {
+func (s *Store) openReader(options []ReaderOption, areChecksumsEqual func(expected, actual []byte) bool) (Reader, error) {
 	opts := &ReaderOptions{
 		chooseVersion: func(versions []Version) (Version, error) {
 			return versions[len(versions)-1], nil
@@ -47,11 +46,13 @@ func (s *Store) openReader(options []ReaderOption) (Reader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error opening file %s for reading: %w", name, err)
 	}
+
 	r := &reader{
-		file:     file,
-		version:  version,
-		checksum: newHash(),
-		metrics:  &s.metrics.Read,
+		file:              file,
+		version:           version,
+		checksum:          newHash(),
+		areChecksumsEqual: areChecksumsEqual,
+		metrics:           &s.metrics.Read,
 	}
 	return r, nil
 }
@@ -61,9 +62,11 @@ type ReaderOptions struct {
 }
 
 type reader struct {
-	file     *os.File
-	version  Version
-	checksum hash.Hash
+	file    *os.File
+	version Version
+
+	checksum          hash.Hash
+	areChecksumsEqual func(expected, actual []byte) bool
 
 	metrics *ReadMetrics
 }
@@ -84,12 +87,12 @@ func (r *reader) Read(p []byte) (int, error) {
 }
 
 func (r *reader) validateChecksum() error {
-	sum := r.checksum.Sum([]byte{})
-	expectedSum, err := r.readChecksum()
+	actual := r.checksum.Sum([]byte{})
+	expected, err := r.readChecksum()
 	if err != nil {
 		return fmt.Errorf("error reading checksum: %w", err)
 	}
-	if !bytes.Equal(expectedSum, sum) {
+	if !r.areChecksumsEqual(expected, actual) {
 		return fmt.Errorf("invalid checksum when reading file %s", r.file.Name())
 	}
 	return nil

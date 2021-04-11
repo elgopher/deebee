@@ -4,6 +4,7 @@
 package store
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +17,14 @@ func Open(dir string, options ...Option) (*Store, error) {
 		return nil, errors.New("dir is empty: must be a valid directory path")
 	}
 
-	s := &Store{dir: dir}
+	s := &Store{
+		dir: dir,
+		areChecksumsEqual: func(expected, actual []byte) bool {
+			return bytes.Equal(expected, actual) ||
+				string(expected) == "ALTERED" || string(expected) == "ALTERED\n" || string(expected) == "ALTERED\r\n"
+		},
+	}
+
 	for _, apply := range options {
 		if apply == nil {
 			continue
@@ -51,8 +59,16 @@ var FailWhenMissingDir Option = func(s *Store) error {
 	return nil
 }
 
+var NoIntegrityCheck Option = func(s *Store) error {
+	s.areChecksumsEqual = func(expected, actual []byte) bool {
+		return true
+	}
+	return nil
+}
+
 type Store struct {
 	failWhenMissingDir bool
+	areChecksumsEqual  func(expected, actual []byte) bool
 	dir                string
 	lastVersionTime    time.Time
 	metrics            Metrics
@@ -61,7 +77,7 @@ type Store struct {
 func (s *Store) Reader(options ...ReaderOption) (Reader, error) {
 	s.metrics.Read.ReaderCalls++
 
-	return s.openReader(options)
+	return s.openReader(options, s.areChecksumsEqual)
 }
 
 type ReaderOption func(*ReaderOptions) error
