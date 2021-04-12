@@ -48,6 +48,7 @@ See [example/json/main.go](example/json/main.go). More examples in [example dire
 #### Easy application debugging
 
 * data is stored on disk as it was saved by the app, so it can be easily read using editor of-choice
+* data can be updated by hand (when integrity check is disabled or when user also updated  the checksum)
 
 ## Alternatives
 
