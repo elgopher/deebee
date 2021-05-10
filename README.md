@@ -1,6 +1,6 @@
 # DeeBee ![DeeBee](bee.png)
 
-Embedded database in Go for storing application state.
+Go library for storing application state.
 
 ## Where it can be used?
 
