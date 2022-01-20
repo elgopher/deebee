@@ -7,10 +7,14 @@ import (
 	"github.com/jacekolszak/deebee/compacter"
 	"github.com/jacekolszak/deebee/json"
 	"github.com/jacekolszak/deebee/store"
+	"github.com/jacekolszak/yala/adapter/printer"
+	"github.com/jacekolszak/yala/logger"
 )
 
 // This example shows how run Compacter which removes old state versions.
 func main() {
+	logger.SetAdapter(printer.StdoutAdapter()) // enable logging in compacter go-routine
+
 	s, err := store.Open("/tmp/deebee")
 	if err != nil {
 		panic(err)
@@ -33,9 +37,9 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		if err2 := compacter.Start(ctx, s); err2 != nil {
+		if err2 := compacter.Start(ctx, s, compacter.Interval(10*time.Second)); err2 != nil {
 			panic(err2)
 		}
 	}()
-	time.Sleep(10 * time.Second)
+	time.Sleep(time.Minute)
 }

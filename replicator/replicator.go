@@ -11,11 +11,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"time"
 
 	"github.com/jacekolszak/deebee/codec"
 	"github.com/jacekolszak/deebee/store"
+	"github.com/jacekolszak/yala/logger"
 )
 
 func CopyFromTo(from codec.ReadOnlyStore, to codec.WriteOnlyStore) error {
@@ -53,7 +53,7 @@ func StartFromTo(ctx context.Context, from codec.ReadOnlyStore, to codec.WriteOn
 		select {
 		case <-time.After(opts.interval):
 			if err := CopyFromTo(from, to); err != nil && !store.IsVersionAlreadyExists(err) {
-				log.Printf("replicator.CopyFromTo failed: %s", err)
+				logger.WithError(ctx, err).Error("replicator.CopyFromTo failed")
 			}
 		case <-ctx.Done():
 			return nil

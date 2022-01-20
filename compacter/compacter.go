@@ -8,11 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"time"
 
 	"github.com/jacekolszak/deebee/codec"
 	"github.com/jacekolszak/deebee/store"
+	"github.com/jacekolszak/yala/logger"
 )
 
 func RunOnce(s Store, options ...Option) error {
@@ -62,7 +62,7 @@ func Start(ctx context.Context, s Store, options ...Option) error {
 		select {
 		case <-time.After(opts.interval):
 			if err := RunOnce(s, options...); err != nil {
-				log.Printf("compacter.RunOnce failed: %s", err)
+				logger.WithError(ctx, err).Error("compacter.RunOnce failed")
 			}
 		case <-ctx.Done():
 			return nil
