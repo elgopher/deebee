@@ -9,11 +9,10 @@ import (
 	"github.com/jacekolszak/deebee/replicator"
 	"github.com/jacekolszak/deebee/store"
 	"github.com/jacekolszak/yala/adapter/printer"
-	"github.com/jacekolszak/yala/logger"
 )
 
 func main() {
-	logger.SetAdapter(printer.StdoutAdapter()) // enable logging in replicator go-routine
+	replicator.Logger.SetAdapter(printer.StdoutAdapter()) // enable logging in replicator go-routine
 
 	cheapStore, err := store.Open("/tmp/deebee/cheap")
 	if err != nil {

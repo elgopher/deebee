@@ -15,6 +15,8 @@ import (
 	"github.com/jacekolszak/yala/logger"
 )
 
+var Logger logger.Global
+
 func RunOnce(s Store, options ...Option) error {
 	if s == nil {
 		return errors.New("nil store")
@@ -62,7 +64,7 @@ func Start(ctx context.Context, s Store, options ...Option) error {
 		select {
 		case <-time.After(opts.interval):
 			if err := RunOnce(s, options...); err != nil {
-				logger.WithError(ctx, err).Error("compacter.RunOnce failed")
+				Logger.WithError(ctx, err).Error("compacter.RunOnce failed")
 			}
 		case <-ctx.Done():
 			return nil

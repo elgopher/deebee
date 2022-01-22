@@ -18,6 +18,8 @@ import (
 	"github.com/jacekolszak/yala/logger"
 )
 
+var Logger logger.Global
+
 func CopyFromTo(from codec.ReadOnlyStore, to codec.WriteOnlyStore) error {
 	if from == nil {
 		return errors.New("nil <from> store")
@@ -53,7 +55,7 @@ func StartFromTo(ctx context.Context, from codec.ReadOnlyStore, to codec.WriteOn
 		select {
 		case <-time.After(opts.interval):
 			if err := CopyFromTo(from, to); err != nil && !store.IsVersionAlreadyExists(err) {
-				logger.WithError(ctx, err).Error("replicator.CopyFromTo failed")
+				Logger.WithError(ctx, err).Error("replicator.CopyFromTo failed")
 			}
 		case <-ctx.Done():
 			return nil
