@@ -3,7 +3,7 @@ module github.com/jacekolszak/deebee
 go 1.17
 
 require (
-	github.com/jacekolszak/yala v0.9.0
+	github.com/jacekolszak/yala v0.9.1
 	github.com/otiai10/copy v1.5.0
 	github.com/stretchr/testify v1.7.0
 )
