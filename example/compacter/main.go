@@ -7,7 +7,7 @@ import (
 	"github.com/elgopher/deebee/compacter"
 	"github.com/elgopher/deebee/json"
 	"github.com/elgopher/deebee/store"
-	"github.com/jacekolszak/yala/adapter/printer"
+	"github.com/elgopher/yala/adapter/printer"
 )
 
 // This example shows how run Compacter which removes old state versions.

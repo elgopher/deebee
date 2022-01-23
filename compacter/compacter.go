@@ -12,7 +12,7 @@ import (
 
 	"github.com/elgopher/deebee/codec"
 	"github.com/elgopher/deebee/store"
-	"github.com/jacekolszak/yala/logger"
+	"github.com/elgopher/yala/logger"
 )
 
 var Logger logger.Global
