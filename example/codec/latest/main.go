@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/jacekolszak/deebee/codec"
-	"github.com/jacekolszak/deebee/json"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/codec"
+	"github.com/elgopher/deebee/json"
+	"github.com/elgopher/deebee/store"
 )
 
 // This example shows how to read a latest version, which is not corrupted and deserializable, and fail-over

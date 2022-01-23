@@ -3,8 +3,8 @@ package main
 import (
 	"io"
 
-	"github.com/jacekolszak/deebee/codec"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/codec"
+	"github.com/elgopher/deebee/store"
 )
 
 // This example shows primitive encoder writing all bytes from memory

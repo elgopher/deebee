@@ -8,11 +8,11 @@ In all kinds of applications that store their state in RAM and would like to sav
 
 ## Install
 
-`go get -u github.com/jacekolszak/deebee`
+`go get -u github.com/elgopher/deebee`
 
 ## Quick Start
 
-See [example/json/main.go](example/json/main.go). More examples in [example directory](example). You can also check [deebee-loans](http://github.com/jacekolszak/deebee-loans) - an example web application using in-memory state and DeeBee for persistence.
+See [example/json/main.go](example/json/main.go). More examples in [example directory](example). You can also check [deebee-loans](http://github.com/elgopher/deebee-loans) - an example web application using in-memory state and DeeBee for persistence.
 
 ## Features:
 

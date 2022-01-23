@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/jacekolszak/deebee/json"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/json"
+	"github.com/elgopher/deebee/store"
 )
 
 // This example shows how to write and read JSON state.

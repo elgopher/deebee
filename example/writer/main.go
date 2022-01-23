@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/store"
 )
 
 // This example shows how to update state using Writer

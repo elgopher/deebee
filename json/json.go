@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/jacekolszak/deebee/codec"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/codec"
+	"github.com/elgopher/deebee/store"
 )
 
 func Read(s codec.ReadOnlyStore, out interface{}, options ...store.ReaderOption) (store.Version, error) {

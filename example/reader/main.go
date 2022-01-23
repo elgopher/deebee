@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/store"
 )
 
 // This example shows how to read a recent version of state

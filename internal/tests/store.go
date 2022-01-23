@@ -7,7 +7,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/store"
 )
 
 type StoreMock struct {
