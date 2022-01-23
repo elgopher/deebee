@@ -1,4 +1,4 @@
-module github.com/jacekolszak/deebee
+module github.com/elgopher/deebee
 
 go 1.17
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/jacekolszak/deebee/compacter"
-	"github.com/jacekolszak/deebee/json"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/compacter"
+	"github.com/elgopher/deebee/json"
+	"github.com/elgopher/deebee/store"
 	"github.com/jacekolszak/yala/adapter/printer"
 )
 

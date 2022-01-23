@@ -7,7 +7,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/store"
 )
 
 func Read(s ReadOnlyStore, decoder Decoder, options ...store.ReaderOption) (store.Version, error) {

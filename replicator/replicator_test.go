@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jacekolszak/deebee/internal/tests"
-	"github.com/jacekolszak/deebee/replicator"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/internal/tests"
+	"github.com/elgopher/deebee/replicator"
+	"github.com/elgopher/deebee/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

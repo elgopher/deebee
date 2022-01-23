@@ -6,8 +6,8 @@ package store_test
 import (
 	"testing"
 
-	"github.com/jacekolszak/deebee/internal/tests"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/internal/tests"
+	"github.com/elgopher/deebee/store"
 	"github.com/stretchr/testify/assert"
 )
 

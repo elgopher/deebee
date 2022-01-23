@@ -10,8 +10,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/jacekolszak/deebee/codec"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/codec"
+	"github.com/elgopher/deebee/store"
 	"github.com/jacekolszak/yala/logger"
 )
 

@@ -8,9 +8,9 @@ import (
 	"io"
 	"testing"
 
-	"github.com/jacekolszak/deebee/codec"
-	"github.com/jacekolszak/deebee/internal/tests"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/codec"
+	"github.com/elgopher/deebee/internal/tests"
+	"github.com/elgopher/deebee/store"
 	otiai10 "github.com/otiai10/copy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jacekolszak/deebee/json"
-	"github.com/jacekolszak/deebee/replicator"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/json"
+	"github.com/elgopher/deebee/replicator"
+	"github.com/elgopher/deebee/store"
 	"github.com/jacekolszak/yala/adapter/printer"
 )
 

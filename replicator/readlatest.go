@@ -6,8 +6,8 @@ package replicator
 import (
 	"errors"
 
-	"github.com/jacekolszak/deebee/codec"
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/codec"
+	"github.com/elgopher/deebee/store"
 )
 
 // ReadLatest reads latest version from replicated stores.

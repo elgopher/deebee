@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jacekolszak/deebee/store"
+	"github.com/elgopher/deebee/store"
 	"github.com/stretchr/testify/require"
 )
 
