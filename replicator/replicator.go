@@ -15,10 +15,7 @@ import (
 
 	"github.com/elgopher/deebee/codec"
 	"github.com/elgopher/deebee/store"
-	"github.com/elgopher/yala/logger"
 )
-
-var Logger logger.Global
 
 func CopyFromTo(from codec.ReadOnlyStore, to codec.WriteOnlyStore) error {
 	if from == nil {
@@ -55,7 +52,7 @@ func StartFromTo(ctx context.Context, from codec.ReadOnlyStore, to codec.WriteOn
 		select {
 		case <-time.After(opts.interval):
 			if err := CopyFromTo(from, to); err != nil && !store.IsVersionAlreadyExists(err) {
-				Logger.WithError(ctx, err).Error("replicator.CopyFromTo failed")
+				log.WithError(ctx, err).Error("replicator.CopyFromTo failed")
 			}
 		case <-ctx.Done():
 			return nil
