@@ -12,10 +12,7 @@ import (
 
 	"github.com/elgopher/deebee/codec"
 	"github.com/elgopher/deebee/store"
-	"github.com/elgopher/yala/logger"
 )
-
-var Logger logger.Global
 
 func RunOnce(s Store, options ...Option) error {
 	if s == nil {
@@ -64,7 +61,7 @@ func Start(ctx context.Context, s Store, options ...Option) error {
 		select {
 		case <-time.After(opts.interval):
 			if err := RunOnce(s, options...); err != nil {
-				Logger.WithError(ctx, err).Error("compacter.RunOnce failed")
+				log.WithError(ctx, err).Error("compacter.RunOnce failed")
 			}
 		case <-ctx.Done():
 			return nil

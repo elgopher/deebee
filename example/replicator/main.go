@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	replicator.Logger.SetAdapter(console.StdoutAdapter()) // enable logging in replicator go-routine
+	replicator.SetLoggerAdapter(console.StdoutAdapter()) // enable logging in replicator go-routine
 
 	cheapStore, err := store.Open("/tmp/deebee/cheap")
 	if err != nil {

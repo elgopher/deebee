@@ -12,7 +12,7 @@ import (
 
 // This example shows how run Compacter which removes old state versions.
 func main() {
-	compacter.Logger.SetAdapter(console.StdoutAdapter()) // enable logging in compacter go-routine
+	compacter.SetLoggerAdapter(console.StdoutAdapter()) // enable logging in compacter go-routine
 
 	s, err := store.Open("/tmp/deebee")
 	if err != nil {
