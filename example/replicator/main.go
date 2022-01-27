@@ -8,11 +8,11 @@ import (
 	"github.com/elgopher/deebee/json"
 	"github.com/elgopher/deebee/replicator"
 	"github.com/elgopher/deebee/store"
-	"github.com/elgopher/yala/adapter/printer"
+	"github.com/elgopher/yala/adapter/console"
 )
 
 func main() {
-	replicator.Logger.SetAdapter(printer.StdoutAdapter()) // enable logging in replicator go-routine
+	replicator.Logger.SetAdapter(console.StdoutAdapter()) // enable logging in replicator go-routine
 
 	cheapStore, err := store.Open("/tmp/deebee/cheap")
 	if err != nil {

@@ -7,12 +7,12 @@ import (
 	"github.com/elgopher/deebee/compacter"
 	"github.com/elgopher/deebee/json"
 	"github.com/elgopher/deebee/store"
-	"github.com/elgopher/yala/adapter/printer"
+	"github.com/elgopher/yala/adapter/console"
 )
 
 // This example shows how run Compacter which removes old state versions.
 func main() {
-	compacter.Logger.SetAdapter(printer.StdoutAdapter()) // enable logging in compacter go-routine
+	compacter.Logger.SetAdapter(console.StdoutAdapter()) // enable logging in compacter go-routine
 
 	s, err := store.Open("/tmp/deebee")
 	if err != nil {
