@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/elgopher/yala v0.14.0
-	github.com/otiai10/copy v1.5.0
+	github.com/otiai10/copy v1.7.0
 	github.com/stretchr/testify v1.7.0
 )
 
