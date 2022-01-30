@@ -61,7 +61,7 @@ func Start(ctx context.Context, s Store, options ...Option) error {
 		select {
 		case <-time.After(opts.interval):
 			if err := RunOnce(s, options...); err != nil {
-				log.WithError(ctx, err).Error("compacter.RunOnce failed")
+				log.WithError(err).Error(ctx, "compacter.RunOnce failed")
 			}
 		case <-ctx.Done():
 			return nil

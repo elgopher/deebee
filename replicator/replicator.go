@@ -52,7 +52,7 @@ func StartFromTo(ctx context.Context, from codec.ReadOnlyStore, to codec.WriteOn
 		select {
 		case <-time.After(opts.interval):
 			if err := CopyFromTo(from, to); err != nil && !store.IsVersionAlreadyExists(err) {
-				log.WithError(ctx, err).Error("replicator.CopyFromTo failed")
+				log.WithError(err).Error(ctx, "replicator.CopyFromTo failed")
 			}
 		case <-ctx.Done():
 			return nil
